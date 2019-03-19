@@ -1,8 +1,8 @@
 :START
 cd /d "C:\Users\VanBoven\Anaconda3\Scripts"
 call activate.bat VanBoven3.6
-python "E:\VanBovenDrive\VanBoven MT\700 Data and Analysis\710 Data Processing\711 Scripts\Operational\test.py"
+python "C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing\prepare_processing_files.py"
 cd "C:\Program Files\Agisoft\Metashape Pro"
-::call metashape.exe -r "E:\VanBovenDrive\VanBoven MT\700 Data and Analysis\710 Data Processing\711 Scripts\Operational\Batch_processing_1_0.py"
+call metashape.exe -r "C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing\Batch_processing_1_0.py"
 TIMEOUT /T 1800
-GOTO START
+::GOTO START

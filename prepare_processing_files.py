@@ -62,7 +62,7 @@ max_time_diff = 30
 #minimum nr of images needed to process a flight
 min_nr_of_images = 20
 #db connection info
-config_file_path = 'MijnVanBoven\config.json'
+config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
 
 #steps_to_uploads is the number of folders starting from the root drive untill the uploads folder
@@ -83,7 +83,7 @@ def getListOfFolders(root_path, steps_to_uploads):
         #return only folders with finished uploads
         new_finished_uploads = new_uploads[new_uploads['Finished'] == True]
         #continue only when new uploads have finished uploading
-        if len(new_finished_uploads > 0):
+        if len(new_finished_uploads) > 0:
             timestr = time.strftime("%Y%m%d-%H%M%S")
             logging.info(str(len(new_finished_uploads)) + " new uploads at " + str(timestr))
             logging.info("\n")
@@ -286,7 +286,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
                     unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                    unknown_plot['Input_folder','Output_folder'].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + '_unknown_plot.txt', sep = ',', header = False, index = False)
+                    unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + '_unknown_plot.txt', sep = ',', header = False, index = False)
                 else:
                     #if not, create a file to move/remove images from recording folder on drive
                     rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
@@ -294,7 +294,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
                     unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                    unknown_plot['Input_folder', ['Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + '_not_enough_images.txt', sep = ',', header = False, index = False)               
+                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + '_not_enough_images.txt', sep = ',', header = False, index = False)               
             else:
                 #create a file to move images from recordings folder on drive
                 rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
@@ -302,7 +302,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                 rep = dict((re.escape(k), v) for k, v in rep.items())
                 pattern = re.compile("|".join(rep.keys()))
                 flight['Output_folder'] = flight['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                flight['Input_folder', 'Output_folder'].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + '_random_images.txt', sep = ',', header = False, index = False)
+                flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + '_random_images.txt', sep = ',', header = False, index = False)
                 
 def processing(root_path, steps_to_uploads, upload_finished_row_nr, nr_of_images_row_nr, max_time_diff, min_nr_of_images, config_file_path, port):
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads)    
