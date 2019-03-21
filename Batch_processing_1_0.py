@@ -175,11 +175,11 @@ def MetashapeProcess(photoList, output_folder, day_of_recording):
 
 #Start of execution
 
-#initiate log file
+#initiate  file
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
-logging.basicConfig(filename = r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/Metashape_log_file_" +str(timestr) +  ".log",level=logging.DEBUG)
+logging.basicConfig(filename = r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + str(timestr) + "_Metashape_log_file.log",level=logging.DEBUG)
 
 #root_path = r'E:\100 Testing\190304 batch_script_test'
 process_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_process'
