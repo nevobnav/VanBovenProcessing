@@ -103,7 +103,7 @@ def getListOfFolders(root_path, steps_to_uploads):
     else:
         timestr = time.strftime("%Y%m%d-%H%M%S")
         logging.info("No new uploads at " + str(timestr))
-        logging.info("\n")
+        logging.info("\n") 
 
 def CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, nr_of_images_row_nr):
     #initiate lists to store relevant values per upload event
@@ -131,11 +131,12 @@ def CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, n
             #extract image names from init metadata file
             if 'init' in file:
                 link = os.path.join(folder, file)
-                with open(link) as fp:
-                    images = fp.readlines()
-                    list_of_images = images[0].split(',')
-                    folderList.append(folder)
-                    image_names.append(list_of_images)
+                list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])                
+                #with open(link) as fp:
+                    #images = fp.readlines()
+                    #list_of_images = images[0].split(',')
+                folderList.append(folder)
+                image_names.append(list_of_images)
     #Create dataframe with all information for processing and sort based on datetime
     files_to_process = pd.DataFrame({'Path': folderList, 'Image_names': image_names, 'Time_finished_uploading': time_finished, 'Image_count': image_count})
     files_to_process['Processing_order'] = files_to_process['Time_finished_uploading'].rank(ascending=1)
