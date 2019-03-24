@@ -207,7 +207,7 @@ try:
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                #MetashapeProcess(photoList, output_folder, day_of_recording)
+                MetashapeProcess(photoList, output_folder, day_of_recording)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
