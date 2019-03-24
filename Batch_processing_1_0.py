@@ -14,19 +14,16 @@
 7. export orthomosaic
 """
 
+"""
+updates voor v1.1:
+    - Images will be archived as upload event.They will be left in the recordings folder. 
+    - After processing a file is written to the folder to indicate that the files have been processed
+    - Benefit is that the folder with images as a basis will always exist
+    - when processing, filter uploads to contain only uploads of for example last week. (to reduce time of iterating trough folders)
+    
+"""
 
 
-"""
-#1. Load images
-def getPhotoList(path, photoList):
-    pattern = '.JPG$'
-    #for root, dirs, files in os.walk(path):
-    for name in os.listdir(path):
-        if re.search(pattern,name):
-            cur_path = os.path.join(path, name)
-            #print (cur_path)
-            photoList.append(cur_path)
-"""
 import Metashape
 import os,re,sys
 import time
@@ -35,13 +32,14 @@ import shutil
 
 def move_files_after_processing(photoList, output_folder):
     for photo in photoList:
-        shutil.move(photo, output_folder)
+        shutil.copy(photo, output_folder)
+        #shutil.move(photo, output_folder)
     fileList = os.listdir(os.path.dirname(photoList[0]))
     if len(fileList) > 0:
         for file in fileList:
             shutil.move(os.path.join(os.path.dirname(photoList[0]), file), output_folder)
     #can give trouble with permission in windows
-    os.removedirs(os.path.dirname(photoList[0]))
+    #os.removedirs(os.path.dirname(photoList[0]))
 
 def getAltitude(chunk):
     for camera in chunk.cameras:
@@ -170,12 +168,15 @@ def MetashapeProcess(photoList, output_folder, day_of_recording):
     if not os.path.exists(output_folder+"\\Orthomosaic\\"):
         os.makedirs(output_folder+"\\Orthomosaic\\")
 
+    timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
-    chunk.exportOrthomosaic(path = output_folder+"\\Orthomosaic\\" + day_of_recording + '.tif')
+    chunk.exportOrthomosaic(path = output_folder+"\\Orthomosaic\\" + day_of_recording + "_" + str(timestr)+ '.tif')
+    #Metashape.app.quit()
+
 
 #Start of execution
 
-#initiate  file
+#initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
@@ -187,6 +188,9 @@ move_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_move'
 processing_archive_path = r'E:\VanBovenDrive\VanBoven MT\Processing\Archive'
 #execute:
 try:
+    #keep track of processing
+    nr_of_plots = 0
+    nr_of_images = 0
     #iterate through the folder with processing txt files
     for proces_file in os.listdir(process_path):
         if proces_file.endswith('.txt'):
@@ -203,7 +207,7 @@ try:
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                MetashapeProcess(photoList, output_folder, day_of_recording)
+                #MetashapeProcess(photoList, output_folder, day_of_recording)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
@@ -211,43 +215,59 @@ try:
                 logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(output[0])) + " finished in " + str(processing_time) + " seconds I guess")
                 #after succesful processing move proces txt files
                 shutil.move(input_file, processing_archive_path)
+                nr_of_plots += 1
+                nr_of_images += len(photoList)
+                """
+                This part of code is redundant now
                 try:
                     #after metashape is succesfully finished move the images to archive
                     #output_folder for processed images (note that it differs from folder in txt file because that is the folder for metashape output)
-                    output_folder_images = os.path.join(output_folder,"imagery", str(day_of_recording))
+                    timestr = time.strftime("%H%M%S")
+                    output_folder_images = os.path.join(output_folder,"imagery", (str(day_of_recording)+"_"+timestr))
                     if not os.path.exists(output_folder_images):
                         os.makedirs(output_folder_images)
-                    move_files_after_processing(photoList, output_folder_images)
+                    copy_files(photoList, output_folder_images)
+                    #move_files_after_processing(photoList, output_folder_images)
                 except Exception:
                     timestr = time.strftime("%Y%m%d-%H%M%S")
                     logging.info("Error encountered at the following time: " + str(timestr))
                     logging.exception("problem with (re)moving")
                     logging.info("\n")
+                """
             except Exception:
                 timestr = time.strftime("%Y%m%d-%H%M%S")
                 logging.info("Error encountered at the following time: " + str(timestr))
                 logging.info("Error in processing " + str(os.path.dirname(output[0])))
                 logging.exception("Metashape processing encountered the following problem:")
                 logging.info("\n")
+    with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
+        text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")
     logging.info("Error encountered at the following time: " + str(timestr))
     logging.exception("something went wrong reading processing file:")
     logging.info("\n")
 
-#after metashape processing is finished move images that were not selected for processing to archive
+#after metashape processing is finished move images to archive
 try:
     for proces_file in os.listdir(move_path):
         if proces_file.endswith('.txt'):
             input_file = os.path.join(move_path, proces_file)
-            with open(input_file) as image_file:
-                temp = image_file.read().replace('"', '').splitlines()
-            photoList, output = zip(*(s.split(",") for s in temp))
-            output_folder_failed_images = os.path.dirname(output[0])
-            if not os.path.exists(output_folder_failed_images):
-                os.makedirs(output_folder_failed_images)
-            move_files_after_processing(photoList, output_folder_failed_images)
+            #with open(input_file) as image_file:
+                #temp = image_file.read().replace('"', '').splitlines()
+            #photoList, output = zip(*(s.split(",") for s in temp))
+            #output_folder_failed_images = os.path.dirname(output[0])
+            #if not os.path.exists(output_folder_failed_images):
+                #os.makedirs(output_folder_failed_images)
+            #try:
+                #print('nu even niet')
+                #move_files_after_processing(photoList, output_folder_failed_images)
             #after succesful moving the images, move the txt files to Archive
+            #except:
+                #timestr = time.strftime("%Y%m%d-%H%M%S")
+                #logging.info("Error encountered at the following time: " + str(timestr))
+                #logging.exception("files have been moved to archive")
+                #logging.info("\n")
             shutil.move(input_file, processing_archive_path)
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")

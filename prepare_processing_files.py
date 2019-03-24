@@ -58,7 +58,7 @@ upload_finished_row_nr = 1
 #in the exit file that indicates the end of an upload event, the row number of the row in the file that refers to the total number of uploaded images
 nr_of_images_row_nr = 0
 #the maximum time in seconds allowed between images to be considered from the same flight
-max_time_diff = 30
+max_time_diff = 130
 #minimum nr of images needed to process a flight
 min_nr_of_images = 20
 #db connection info
@@ -75,13 +75,21 @@ def getListOfFolders(root_path, steps_to_uploads):
     nr_of_subdirs = folderList.Path.str.split("\\")
     nr_of_subdirs = nr_of_subdirs.apply(lambda x:len(x))
     folderList['Nr_of_subdirs'] = nr_of_subdirs
-    new_uploads = folderList[folderList.Nr_of_subdirs == steps_to_uploads]
+    uploads = folderList[folderList.Nr_of_subdirs == steps_to_uploads]
+    uploads['Day'] = uploads['Path'].apply(lambda x:os.path.basename(x))
+    #get day of upload as datetime object
+    uploads['Date'] = uploads['Day'].apply(lambda x:pd.to_datetime(x, format = '%Y%m%d'))
+    #get the last 7 days of uploading
+    today = datetime.date.today()
+    week_ago = today - datetime.timedelta(days=7)
+    new_uploads = uploads[uploads['Date'] > week_ago]
     #continue only when there are new uploads
     if len(new_uploads) > 0:
-        #check for each folder if uploading is finished
+        #check for each folder if uploading is finished and if the files have not been processed
         new_uploads['Finished'] = new_uploads.Path.apply(lambda x:[y for y in os.listdir(x)][0]).str.contains('exit')
+        new_uploads['Processed'] = new_uploads.Path.apply(lambda x:[y for y in os.listdir(x)][0]).str.contains('processed')        
         #return only folders with finished uploads
-        new_finished_uploads = new_uploads[new_uploads['Finished'] == True]
+        new_finished_uploads = new_uploads[(new_uploads['Finished'] == True) & (new_uploads['Processed'] == False)]
         #continue only when new uploads have finished uploading
         if len(new_finished_uploads) > 0:
             timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -268,7 +276,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                         output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
                         #create txt file for processing
                         timestr = time.strftime("%Y%m%d-%H%M%S")
-                        output.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_id)+".txt", sep = ',', header = False, index = False)                        
+                        output.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_id)+ "_group"+str(j)+".txt", sep = ',', header = False, index = False)                        
                     else:
                         #if nr of images within plot is not enough for processing, the output column value is put back to False, as if the images do not intersect a plot
                         flight[str(plot_id)].loc[flight[str(plot_id)] == True] = False
@@ -286,7 +294,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
                     unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                    unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + '_unknown_plot.txt', sep = ',', header = False, index = False)
+                    unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_unknown_plot.txt', sep = ',', header = False, index = False)
                 else:
                     #if not, create a file to move/remove images from recording folder on drive
                     rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
@@ -294,7 +302,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
                     unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + '_not_enough_images.txt', sep = ',', header = False, index = False)               
+                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_not_enough_images.txt', sep = ',', header = False, index = False)               
             else:
                 #create a file to move images from recordings folder on drive
                 rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
@@ -302,7 +310,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                 rep = dict((re.escape(k), v) for k, v in rep.items())
                 pattern = re.compile("|".join(rep.keys()))
                 flight['Output_folder'] = flight['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + '_random_images.txt', sep = ',', header = False, index = False)
+                flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_random_images.txt', sep = ',', header = False, index = False)
                 
 def processing(root_path, steps_to_uploads, upload_finished_row_nr, nr_of_images_row_nr, max_time_diff, min_nr_of_images, config_file_path, port):
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads)    
