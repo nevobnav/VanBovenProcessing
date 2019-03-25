@@ -86,8 +86,8 @@ def getListOfFolders(root_path, steps_to_uploads):
     #continue only when there are new uploads
     if len(new_uploads) > 0:
         #check for each folder if uploading is finished and if the files have not been processed
-        new_uploads['Finished'] = new_uploads.Path.apply(lambda x:[y for y in os.listdir(x)][0]).str.contains('exit')
-        new_uploads['Processed'] = new_uploads.Path.apply(lambda x:[y for y in os.listdir(x)][0]).str.contains('processed')        
+        new_uploads['Finished'] = new_uploads.Path.apply(lambda x:bool([True for y in os.listdir(x) if y.endswith('exit.txt')]))
+        new_uploads['Processed'] = new_uploads.Path.apply(lambda x:bool([True for y in os.listdir(x)if y.endswith('processed.txt')]))
         #return only folders with finished uploads
         new_finished_uploads = new_uploads[(new_uploads['Finished'] == True) & (new_uploads['Processed'] == False)]
         #continue only when new uploads have finished uploading
@@ -109,8 +109,8 @@ def CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, n
     #initiate lists to store relevant values per upload event
     time_finished = []
     image_count = []
-    image_names = []
     folderList = []  
+    image_names = []
     #loop through folders with finished uploads and open init and exit metadata files
     for folder in new_finished_uploads.Path:
         for file in os.listdir(folder):
@@ -121,22 +121,18 @@ def CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, n
                     for i, line in enumerate(fp):
                         if i == upload_finished_row_nr:
                             date_time = line.replace('Time: ', '').rstrip()
-                            #date_time_obj = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
-                            time_finished.append(date_time)
+                            date_time_obj = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
+                            time_finished.append(date_time_obj)
                         elif i == nr_of_images_row_nr:
                             nr_of_images = re.search(r'\d+', line).group()
                             image_count.append(nr_of_images)
                         elif ((i > upload_finished_row_nr) & (i > nr_of_images_row_nr)):
                             break
-            #extract image names from init metadata file
-            if 'init' in file:
-                link = os.path.join(folder, file)
-                list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])                
-                #with open(link) as fp:
-                    #images = fp.readlines()
-                    #list_of_images = images[0].split(',')
-                folderList.append(folder)
-                image_names.append(list_of_images)
+        list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])      
+        folderList.append(folder)
+        image_names.append(list_of_images)
+        if len(time_finished) < 1:
+            time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
     #Create dataframe with all information for processing and sort based on datetime
     files_to_process = pd.DataFrame({'Path': folderList, 'Image_names': image_names, 'Time_finished_uploading': time_finished, 'Image_count': image_count})
     files_to_process['Processing_order'] = files_to_process['Time_finished_uploading'].rank(ascending=1)
@@ -207,14 +203,21 @@ def get_customer_pk(customer_id,meta,con):
 def get_customer_plots(customer_id, meta, con):
     customer_pk = get_customer_pk(customer_id,meta,con)
     plots = meta.tables['portal_plot']
-    query= select([plots.c.id])
-    query = query.where(plots.c.customer_id == customer_pk)
-    res = con.execute(query)
+    query_name = select([plots.c.name])
+    query_name = query_name.where(plots.c.customer_id == customer_pk)
+    query_id = select([plots.c.id])
+    query_id = query_id.where(plots.c.customer_id == customer_pk)
+    res_name = con.execute(query_name)
+    res_id = con.execute(query_id)
+    plot_names = []
     plot_ids = []
-    for result in res:
+    for result in res_name:
+        new_val = result[0]
+        plot_names.append(new_val)
+    for result in res_id:
         new_val = result[0]
         plot_ids.append(new_val)
-    return plot_ids
+    return plot_names, plot_ids
 
 def get_plot_shape(plot_id, meta,con):
     plots = meta.tables['portal_plot']
@@ -227,31 +230,81 @@ def get_plot_shape(plot_id, meta,con):
     
 def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, meta):
     #loop through folders to process
-    for i in range(len(files_to_process)):
-        folder = files_to_process['Path'].iloc[i]
+    for z in range(len(files_to_process)):
+        folder = files_to_process['Path'].iloc[z]
         dirs = folder.split("\\")
         #Get the customer_id
         get_customer_name = [re.search('c' + '\d+' + '_' + '.*', subdir) for subdir in dirs]
         customer = [customer.group(0) for customer in get_customer_name if customer]
         customer_id = customer[0]
         #get the image names and path        
-        images = pd.DataFrame({'Image_names':files_to_process['Image_names'].iloc[i]})
+        images = pd.DataFrame({'Image_names':files_to_process['Image_names'].iloc[z]})
         #get altitude from Exif data        
         images['Altitude'] = images['Image_names'].apply(lambda x:pd.Series({'Alt':(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][0])/(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][1])}))
         #get the coordinates of the images from the metadata
         images['Coords'] = images['Image_names'].apply(lambda x:pd.Series({'Coords':Point(get_image_coords(folder, x))}))        
         #get the date and time of the images from the metadata
         images['DateTime'] = images['Image_names'].apply(lambda x:pd.to_datetime(getExif(PIL.Image.open(os.path.join(folder, x))).get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
+        images = images.sort_values(by='DateTime', ascending=True)
+        images = images.reset_index(drop=True)     
         #Group images from the same flights
-        images['Altitude_difference'] = images['Altitude'].diff()    
-        images['Time_after_previous'] = images['DateTime'].diff().astype('timedelta64[s]')
-        images['Time_before_next'] = images['DateTime'].shift(-1).diff().astype('timedelta64[s]')
-        images['Groupby_nr'] = np.where(((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] < max_time_diff)) | ((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] > max_time_diff)),1,0).cumsum() 
+        #images['Groupby_nr'] = np.where(((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] < max_time_diff)) | ((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] > max_time_diff)),1,0).cumsum() 
         images['Input_folder'] = images['Image_names'].apply(lambda x:os.path.join(folder, x))
         #log the number of image groups for possible debugging
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        logging.info(str(images['Groupby_nr'].max()) + " image groups at " + str(timestr))
+        #logging.info(str(images['Groupby_nr'].max()) + " image groups at " + str(timestr))
+        total_upload = images
+
+        #get plots of customer from DB
+        pk = get_customer_pk(customer_id,meta,con)
+        plot_names, plot_ids = get_customer_plots(customer_id, meta, con)
         
+        #check per plot for intersecting images and create a file for processing
+        for i, plot_id in enumerate(plot_ids):
+            #convert wkb element to shapely geometry and create a buffer around the shape of approx. 10 meters (unit is decimal degrees)
+            geometry = to_shape(get_plot_shape(plot_id, meta, con)).buffer(0.0001)
+            #select intersecting images
+            intersect = pd.DataFrame({str(plot_names[i]):total_upload['Coords'].apply(lambda x:geometry.contains(x))})
+            plot_name = plot_names[i]
+            #total_upload[str(plot_names[i])] = total_upload['Coords'].apply(lambda x:geometry.contains(x))
+            output = pd.DataFrame(pd.merge(images, intersect, left_index = True, right_index = True))
+            output = output[output[str(plot_name)] == True]
+            if len(output)>0:
+                output = pd.DataFrame(output[output[str(plot_names[i])] == True])
+                output['Altitude_difference'] = output['Altitude'].diff()    
+                output['Time_after_previous'] = output['DateTime'].diff().astype('timedelta64[s]')
+                output['Time_before_next'] = output['DateTime'].shift(-1).diff().astype('timedelta64[s]')
+                output['Groupby_nr'] = np.where((abs(output['Altitude_difference']) > 18),1,0).cumsum() 
+                #Loop through clustered_images per plot
+                for j in range(output['Groupby_nr'].max()+1):
+                    subset = pd.DataFrame(output[output['Groupby_nr'] == j])            
+                    if len(subset) < 10:
+                        output.drop(output[output['Groupby_nr'] == j].index, inplace = True)
+                if len(output) > min_nr_of_images:
+                    rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))} 
+                    # use these three lines to do the replacement
+                    rep = dict((re.escape(k), v) for k, v in rep.items())
+                    pattern = re.compile("|".join(rep.keys()))
+                    output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+                    #create txt file for processing
+                    timestr = time.strftime("%Y%m%d-%H%M%S")
+                    output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+                    output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)                        
+        image_matches = total_upload.select_dtypes(np.bool)
+        unknown_plot = pd.DataFrame({'Plot_known' : image_matches.any(axis=1, bool_only = True)})
+        unknown_plot = unknown_plot[unknown_plot['Plot_known'] == False]
+        unknown_plot = pd.merge(total_upload, unknown_plot, left_index = True, right_index = True)
+        if len(unknown_plot) > min_nr_of_images:
+            #if true, create a processing file with unknown plot and correct output folder
+            rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\unknown_plot_id")}
+            # modify input folder to output folder
+            rep = dict((re.escape(k), v) for k, v in rep.items())
+            pattern = re.compile("|".join(rep.keys()))
+            unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+            unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
+
+"""
+        #check for images 
         #Loop through images per flight
         for j in range(images['Groupby_nr'].max()):
             flight = pd.DataFrame(images[images['Groupby_nr'] == j])
@@ -312,6 +365,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                 pattern = re.compile("|".join(rep.keys()))
                 flight['Output_folder'] = flight['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
                 flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_random_images.txt', sep = ',', header = False, index = False)
+"""
                 
 def processing(root_path, steps_to_uploads, upload_finished_row_nr, nr_of_images_row_nr, max_time_diff, min_nr_of_images, config_file_path, port):
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads)    
