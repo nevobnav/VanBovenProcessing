@@ -253,7 +253,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
         #log the number of image groups for possible debugging
         timestr = time.strftime("%Y%m%d-%H%M%S")
         #logging.info(str(images['Groupby_nr'].max()) + " image groups at " + str(timestr))
-        total_upload = images
+        total_upload = images.copy()
 
         #get plots of customer from DB
         pk = get_customer_pk(customer_id,meta,con)
@@ -261,13 +261,15 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
         
         #check per plot for intersecting images and create a file for processing
         for i, plot_id in enumerate(plot_ids):
+            #create copy of images for because the merge step ads column to the file
+            temp = images.copy()
             #convert wkb element to shapely geometry and create a buffer around the shape of approx. 10 meters (unit is decimal degrees)
             geometry = to_shape(get_plot_shape(plot_id, meta, con)).buffer(0.0001)
             #select intersecting images
             intersect = pd.DataFrame({str(plot_names[i]):total_upload['Coords'].apply(lambda x:geometry.contains(x))})
             plot_name = plot_names[i]
-            #total_upload[str(plot_names[i])] = total_upload['Coords'].apply(lambda x:geometry.contains(x))
-            output = pd.DataFrame(pd.merge(images, intersect, left_index = True, right_index = True))
+            total_upload[str(plot_names[i])] = total_upload['Coords'].apply(lambda x:geometry.contains(x))
+            output = pd.DataFrame(pd.merge(temp, intersect, left_index = True, right_index = True))
             output = output[output[str(plot_name)] == True]
             if len(output)>0:
                 output = pd.DataFrame(output[output[str(plot_names[i])] == True])

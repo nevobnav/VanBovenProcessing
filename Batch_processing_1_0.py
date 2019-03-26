@@ -16,11 +16,11 @@
 
 """
 updates voor v1.1:
-    - Images will be archived as upload event.They will be left in the recordings folder. 
+    - Images will be archived as upload event.They will be left in the recordings folder.
     - After processing a file is written to the folder to indicate that the files have been processed
     - Benefit is that the folder with images as a basis will always exist
     - when processing, filter uploads to contain only uploads of for example last week. (to reduce time of iterating trough folders)
-    
+
 """
 
 
@@ -171,8 +171,7 @@ def MetashapeProcess(photoList, output_folder, day_of_recording):
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
     chunk.exportOrthomosaic(path = output_folder+"\\Orthomosaic\\" + day_of_recording + "_" + str(timestr)+ '.tif')
-    #Metashape.app.quit()
-
+    doc.clear()
 
 #Start of execution
 
