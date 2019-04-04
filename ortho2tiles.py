@@ -9,14 +9,14 @@ import os
 #import gdal2tiles
 import pandas as pd
 import subprocess
-
-os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing\gdal2tilesp')
-import gdal2tilesp
+from gdal2tilesp import gdal2tilesp
 
 #folder where all orthos are stored
 folder = r'E:\VanBovenDrive\VanBoven MT\Archive'
-output_folder = r'C:\Tiles4'
-skipme = ['Wever oost','Rijweg stalling 1','Rijweg stalling 2','unknown_plot_id']
+output_folder = r'C:\Tiles5'
+
+#These plots are skipped for debugging purposes:
+skipme = ['unknown_plot_id']
 
 #get lists of folders for processing
 folderList = pd.DataFrame([x[0] for x in os.walk(folder)], columns = ['Path'])
@@ -52,7 +52,8 @@ for i, path in enumerate(orthoList['Path']):
                     #multicore version
                     print('Procesing in main ELSE loop')
                     if not (plot_name in skipme):
-                        batcmd = r'C:/Users/VanBoven/Documents/GitHub/VanBovenProcessing/gdal2tilesp/gdal2tilesp.py ' + '"' + str(input_file) + '"' + ' "' + str(output_file) + '"'+ ' -z 16-24 -w leaflet -o tms'
+                        batcmd = r'C:/Users/VanBoven/Documents/GitHub/VanBovenProcessing/gdal2tilesp/gdal2tilesp.py '\
+                        + '"' + str(input_file) + '"' + ' "' + str(output_file) + '"'+ ' -z 16-24 -w leaflet -o tms'
                         os.system(batcmd)
                     else:
                         print('Already did these')
@@ -66,6 +67,7 @@ for i, path in enumerate(orthoList['Path']):
                     #gdal2tiles.generate_tiles(input_file, output_file, zoom = '16-24')
                     #multicore version
                     print('Procesing in main ELSE loop')
-                    batcmd = r'C:/Users/VanBoven/Documents/GitHub/VanBovenProcessing/gdal2tilesp/gdal2tilesp.py ' + '"' + str(input_file) + '"' + ' "' + str(output_file) +'"'+ ' -z 16-24 -w leaflet -o tms'
+                    batcmd = r'C:/Users/VanBoven/Documents/GitHub/VanBovenProcessing/gdal2tilesp/gdal2tilesp.py ' \
+                    + '"' + str(input_file) + '"' + ' "' + str(output_file) +'"'+ ' -z 16-24 -w leaflet -o tms'
                     print(batcmd)
                     os.system(batcmd)
