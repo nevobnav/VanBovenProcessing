@@ -50,11 +50,11 @@ def getAltitude(chunk):
     Metashape.app.update()
     print("Script finished")
 
-def MetashapeProcess(photoList, output_folder, day_of_recording, temp_processing_folder):
+def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out):
     #if folder.endswith('Perceel1'): ook een optie afhankelijk van naamgeving mappen
     #path = folder
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
+    if not os.path.exists(metashape_processing_folder):
+        os.makedirs(metashape_processing_folder)
     #start with cleared console
     Metashape.app.console.clear()
 
@@ -64,7 +64,7 @@ def MetashapeProcess(photoList, output_folder, day_of_recording, temp_processing
     ## save project
     #doc.open("M:/Metashape/practise.psx")
     timestr = time.strftime("%Y%m%d-%H%M%S")
-    psxfile = temp_processing_folder + '\\' + str(timestr)+'.psx'
+    psxfile = metashape_processing_folder + '\\' + str(timestr)+'.psx'
     doc.save( psxfile )
     print ('&amp;gt;&amp;gt; Saved to: ' + psxfile)
 
@@ -181,12 +181,12 @@ def MetashapeProcess(photoList, output_folder, day_of_recording, temp_processing
     ################################################################################################
     doc.save()
 
-    if not os.path.exists(temp_processing_folder+"\\Orthomosaic\\"):
-        os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
+    #if not os.path.exists(temp_processing_folder+"\\Orthomosaic\\"):
+        #os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
 
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
-    chunk.exportOrthomosaic(path = temp_processing_folder + "\\Orthomosaic\\" + day_of_recording + "_" + str(timestr)+ '.tif')
+    chunk.exportOrthomosaic(path = ortho_out)
     doc.clear()
 
 #Start of execution
@@ -201,6 +201,8 @@ logging.basicConfig(filename = r"E:\VanBovenDrive\VanBoven MT\Processing\Log_fil
 process_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_process'
 move_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_move'
 processing_archive_path = r'E:\VanBovenDrive\VanBoven MT\Processing\Archive'
+processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
+temp_processing_folder = r'C:\Users\VanBoven\Documents\Temp_processing_files\Metashape'
 #execute:
 try:
     #keep track of processing
@@ -209,22 +211,24 @@ try:
     #iterate through the folder with processing txt files
     for proces_file in os.listdir(process_path):
         if proces_file.endswith('.txt'):
-            temp_processing_folder = r'C:\Users\VanBoven\Documents\Temp_processing_files\Metashape'
+
             input_file = os.path.join(process_path, proces_file)
             with open(input_file) as image_file:
-                temp = image_file.read().replace('"', '').splitlines()
-            photoList, output = zip(*(s.split(",") for s in temp))
+                temp = image_file.read().splitlines()
+                #temp = image_file.read().replace('"', '').splitlines()
+            #photoList = zip(*(s.split(",") for s in temp))
+            photoList = temp[:-1]
+            plot_id = temp[-1]
             #select the folder of the parcel in the archive map
-            customer_id = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(output[0]))))
-            plot_id = os.path.basename(os.path.dirname(os.path.dirname(output[0])))
-            day_of_recording = os.path.basename(os.path.dirname(output[0]))
-            output_folder = os.path.dirname(os.path.dirname(output[0]))
-            temp_processing_folder = os.path.join(temp_processing_folder, customer_id, plot_id)
+            customer_id = os.path.basename(os.path.dirname(os.path.dirname(photoList[0])))
+            day_of_recording = os.path.basename(os.path.dirname(photoList[0]))
+            metashape_processing_folder = os.path.join(temp_processing_folder, customer_id, plot_id)
+            ortho_out = os.path.join(processing_folder, customer_id + '-'+plot_id+'-'+day_of_recording+'.tif')
             try:
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                MetashapeProcess(photoList, output_folder, day_of_recording, temp_processing_folder)
+                MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file

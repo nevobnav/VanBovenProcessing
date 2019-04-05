@@ -245,7 +245,7 @@ def transform_geometry(geometry):
     geometry = transform(project, geometry)  # apply projection
     return geometry
     
-def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, meta):
+def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta):
     #loop through folders to process
     for z in range(len(files_to_process)):
         folder = files_to_process['Path'].iloc[z]
@@ -302,27 +302,32 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                     if len(subset) < 10:
                         output.drop(output[output['Groupby_nr'] == j].index, inplace = True)
                 if len(output) > geometry_transformed.area * 0.0001 * min_nr_of_images_per_ha:
-                    rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))} 
+                    #rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))} 
                     # use these three lines to do the replacement
-                    rep = dict((re.escape(k), v) for k, v in rep.items())
-                    pattern = re.compile("|".join(rep.keys()))
-                    output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+                    #rep = dict((re.escape(k), v) for k, v in rep.items())
+                    #pattern = re.compile("|".join(rep.keys()))
+                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#, os.path.basename(x)))                        
                     #create txt file for processing
                     timestr = time.strftime("%Y%m%d-%H%M%S")
-                    output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                    output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)                        
+                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                                                
+                    output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)                        
+                    with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
+                        f.write(str(plot_name))
+                    #output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)                        
         image_matches = total_upload.select_dtypes(np.bool)
         unknown_plot = pd.DataFrame({'Plot_known' : image_matches.any(axis=1, bool_only = True)})
         unknown_plot = unknown_plot[unknown_plot['Plot_known'] == False]
         unknown_plot = pd.merge(total_upload, unknown_plot, left_index = True, right_index = True)
-        if len(unknown_plot) > min_nr_of_images:
+        if len(unknown_plot) > 50:
             #if true, create a processing file with unknown plot and correct output folder
-            rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\unknown_plot_id")}
+            #rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\unknown_plot_id")}
             # modify input folder to output folder
-            rep = dict((re.escape(k), v) for k, v in rep.items())
-            pattern = re.compile("|".join(rep.keys()))
-            unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-            unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
+            #rep = dict((re.escape(k), v) for k, v in rep.items())
+            #pattern = re.compile("|".join(rep.keys()))
+            #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+            unknown_plot[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
+            with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
+                f.write(str(plot_name))
 
 """
         #check for images 
@@ -388,15 +393,15 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                 flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_random_images.txt', sep = ',', header = False, index = False)
 """
                 
-def processing(root_path, steps_to_uploads, upload_finished_row_nr, nr_of_images_row_nr, max_time_diff, min_nr_of_images, config_file_path, port):
+def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port):
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads)    
     if new_finished_uploads is not None:
-        files_to_process = CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, nr_of_images_row_nr)
+        files_to_process = CreateProcessingOrderUploads(new_finished_uploads)
         con, meta = connect(config_file_path, port)
-        GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, meta)
+        GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta)
         
 try:
-    processing(root_path, steps_to_uploads, upload_finished_row_nr, nr_of_images_row_nr, max_time_diff, min_nr_of_images, config_file_path, port)
+    processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port)
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")
     logging.info("Error encountered at the following time: " + str(timestr))
