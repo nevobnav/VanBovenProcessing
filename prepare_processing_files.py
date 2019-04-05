@@ -18,6 +18,7 @@ Created on Mon Mar  4 18:21:17 2019
 """
 
 import os, re
+import glob
 import datetime
 import time
 import pandas as pd
@@ -40,6 +41,9 @@ from sqlalchemy.sql import select
 from geoalchemy2 import Geometry
 from geoalchemy2.shape import to_shape 
 
+from functools import partial
+import pyproj
+from shapely.ops import transform
 
 #initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -53,14 +57,10 @@ root_path = r'E:\VanBovenDrive\VanBoven MT\Opnames'
 #steps_to_uploads is the number of folders starting from the root drive untill the uploads folder
 #for example: in the folder "E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
 steps_to_uploads = 6
-#in the exit file that indicates the end of an upload event, the row number of the row in the file that refers to the time that the upload was finished
-upload_finished_row_nr = 1
-#in the exit file that indicates the end of an upload event, the row number of the row in the file that refers to the total number of uploaded images
-nr_of_images_row_nr = 0
 #the maximum time in seconds allowed between images to be considered from the same flight
 max_time_diff = 130
-#minimum nr of images needed to process a flight
-min_nr_of_images = 20
+#minimum nr of images per ha needed to process a flight
+min_nr_of_images_per_ha = 30
 #db connection info
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
@@ -105,8 +105,9 @@ def getListOfFolders(root_path, steps_to_uploads):
         logging.info("No new uploads at " + str(timestr))
         logging.info("\n") 
 
-def CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, nr_of_images_row_nr):
-    #initiate lists to store relevant values per upload event
+def CreateProcessingOrderUploads(new_finished_uploads):
+    #initiate lists to store relevant values per upload event, metashape needs a list of image paths as input. 
+    #the time finished uploading is used to determine the processing order, and the number of images to determine if the number of images reflects a complete plot
     time_finished = []
     image_count = []
     folderList = []  
@@ -114,21 +115,29 @@ def CreateProcessingOrderUploads(new_finished_uploads, upload_finished_row_nr, n
     #loop through folders with finished uploads and open init and exit metadata files
     for folder in new_finished_uploads.Path:
         for file in os.listdir(folder):
-        #extract values from exit metadata file
+        #extract the number of uploaded images and the time when uploading was finished from exit metadata file
             if 'exit' in file:
                 link = os.path.join(folder, file)              
                 with open(link) as fp:
                     for i, line in enumerate(fp):
-                        if i == upload_finished_row_nr:
+                        if line.startswith('Time'):
                             date_time = line.replace('Time: ', '').rstrip()
                             date_time_obj = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
                             time_finished.append(date_time_obj)
-                        elif i == nr_of_images_row_nr:
-                            nr_of_images = re.search(r'\d+', line).group()
-                            image_count.append(nr_of_images)
-                        elif ((i > upload_finished_row_nr) & (i > nr_of_images_row_nr)):
+                        elif line.startswith('Succesfull uploads'):
+                            upload_info = line[20:-3]
+                            upload_numbers = [int(s) for s in upload_info.split() if s.isdigit()]
+                            successful_uploads, all_images = upload_numbers
+                            #check if upload was successful and log info otherwise
+                            if all_images - successful_uploads > 1:
+                                missing_uploads = all_images - successful_uploads
+                                with open(r'C:\Users\VanBoven\Documents\Temp_processing_files\Error_logs\upload_error_in_' +str(link[58:-9])+".txt", "w") as text_file:
+                                    text_file.write("There are " + str(missing_uploads) + " unsuccessful uploads in " + folder)                            
+                            #currently images are still processed, despite missing uploads
+                            image_count.append(successful_uploads)
+                        elif (i > 10):
                             break
-        list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])      
+        list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])  #glob.glob(folder + '/*.JPG')    
         folderList.append(folder)
         image_names.append(list_of_images)
         if len(time_finished) < 1:
@@ -227,6 +236,14 @@ def get_plot_shape(plot_id, meta,con):
     for result in res:
         output = result[0]
     return output
+
+def transform_geometry(geometry):
+    project = partial(
+    pyproj.transform,
+    pyproj.Proj(init='epsg:4326'), # source coordinate system
+    pyproj.Proj(init='epsg:28992')) # destination coordinate system
+    geometry = transform(project, geometry)  # apply projection
+    return geometry
     
 def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, meta):
     #loop through folders to process
@@ -264,11 +281,13 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
             #create copy of images for because the merge step ads column to the file
             temp = images.copy()
             #convert wkb element to shapely geometry and create a buffer around the shape of approx. 10 meters (unit is decimal degrees)
-            geometry = to_shape(get_plot_shape(plot_id, meta, con)).buffer(0.0001)
+            geometry = to_shape(get_plot_shape(plot_id, meta, con)) 
+            geometry_transformed = transform_geometry(geometry)
+            geometry_buffered = geometry.buffer(0.0001)
             #select intersecting images
-            intersect = pd.DataFrame({str(plot_names[i]):total_upload['Coords'].apply(lambda x:geometry.contains(x))})
+            intersect = pd.DataFrame({str(plot_names[i]):total_upload['Coords'].apply(lambda x:geometry_buffered.contains(x))})
             plot_name = plot_names[i]
-            total_upload[str(plot_names[i])] = total_upload['Coords'].apply(lambda x:geometry.contains(x))
+            total_upload[str(plot_names[i])] = total_upload['Coords'].apply(lambda x:geometry_buffered.contains(x))
             output = pd.DataFrame(pd.merge(temp, intersect, left_index = True, right_index = True))
             output = output[output[str(plot_name)] == True]
             if len(output)>0:
@@ -282,7 +301,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images, con, m
                     subset = pd.DataFrame(output[output['Groupby_nr'] == j])            
                     if len(subset) < 10:
                         output.drop(output[output['Groupby_nr'] == j].index, inplace = True)
-                if len(output) > min_nr_of_images:
+                if len(output) > geometry_transformed.area * 0.0001 * min_nr_of_images_per_ha:
                     rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))} 
                     # use these three lines to do the replacement
                     rep = dict((re.escape(k), v) for k, v in rep.items())

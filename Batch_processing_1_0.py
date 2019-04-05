@@ -50,7 +50,7 @@ def getAltitude(chunk):
     Metashape.app.update()
     print("Script finished")
 
-def MetashapeProcess(photoList, output_folder, day_of_recording):
+def MetashapeProcess(photoList, output_folder, day_of_recording, temp_processing_folder):
     #if folder.endswith('Perceel1'): ook een optie afhankelijk van naamgeving mappen
     #path = folder
     if not os.path.exists(output_folder):
@@ -64,7 +64,7 @@ def MetashapeProcess(photoList, output_folder, day_of_recording):
     ## save project
     #doc.open("M:/Metashape/practise.psx")
     timestr = time.strftime("%Y%m%d-%H%M%S")
-    psxfile = output_folder + '\\' + str(timestr)+'.psx'
+    psxfile = temp_processing_folder + '\\' + str(timestr)+'.psx'
     doc.save( psxfile )
     print ('&amp;gt;&amp;gt; Saved to: ' + psxfile)
 
@@ -97,6 +97,22 @@ def MetashapeProcess(photoList, output_folder, day_of_recording):
     # - Image pair preselection in [ReferencePreselection, GenericPreselection, NoPreselection]
     chunk.matchPhotos(accuracy=Metashape.HighestAccuracy, preselection=Metashape.ReferencePreselection, filter_mask=False, keypoint_limit=40000, tiepoint_limit=4000)
     chunk.alignCameras()
+
+    #iteratively align images until at least 97% is aligned
+    alignment_check = 1
+    max_iter = 10
+    iter = 0
+    while alignment_check > 0.05:
+        realign_list = list()
+        for camera in chunk.cameras:
+            if not camera.transform:
+                realign_list.append(camera)
+        if (len(realign_list)//len(chunk.cameras) > 0):
+            chunk.alignCameras(cameras = realign_list)
+        alignment_check = len(realign_list)//len(chunk.cameras)
+        iter += 1
+        if iter == max_iter:
+            break
 
     #optional incteratively increase camera accuracy
     threshold = 0.5
@@ -165,12 +181,12 @@ def MetashapeProcess(photoList, output_folder, day_of_recording):
     ################################################################################################
     doc.save()
 
-    if not os.path.exists(output_folder+"\\Orthomosaic\\"):
-        os.makedirs(output_folder+"\\Orthomosaic\\")
+    if not os.path.exists(temp_processing_folder+"\\Orthomosaic\\"):
+        os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
 
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
-    chunk.exportOrthomosaic(path = output_folder+"\\Orthomosaic\\" + day_of_recording + "_" + str(timestr)+ '.tif')
+    chunk.exportOrthomosaic(path = temp_processing_folder + "\\Orthomosaic\\" + day_of_recording + "_" + str(timestr)+ '.tif')
     doc.clear()
 
 #Start of execution
@@ -193,6 +209,7 @@ try:
     #iterate through the folder with processing txt files
     for proces_file in os.listdir(process_path):
         if proces_file.endswith('.txt'):
+            temp_processing_folder = r'C:\Users\VanBoven\Documents\Temp_processing_files\Metashape'
             input_file = os.path.join(process_path, proces_file)
             with open(input_file) as image_file:
                 temp = image_file.read().replace('"', '').splitlines()
@@ -202,11 +219,12 @@ try:
             plot_id = os.path.basename(os.path.dirname(os.path.dirname(output[0])))
             day_of_recording = os.path.basename(os.path.dirname(output[0]))
             output_folder = os.path.dirname(os.path.dirname(output[0]))
+            temp_processing_folder = os.path.join(temp_processing_folder, customer_id, plot_id)
             try:
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                MetashapeProcess(photoList, output_folder, day_of_recording)
+                MetashapeProcess(photoList, output_folder, day_of_recording, temp_processing_folder)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
