@@ -124,7 +124,8 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                             date_time = line.replace('Time: ', '').rstrip()
                             date_time_obj = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
                             time_finished.append(date_time_obj)
-                        elif line.startswith('Succesfull uploads'):
+                            
+                        elif (line.startswith('Successful uploads')) or (line.startswith('Succesfull uploads')):
                             upload_info = line[20:-3]
                             upload_numbers = [int(s) for s in upload_info.split() if s.isdigit()]
                             successful_uploads, all_images = upload_numbers
@@ -135,7 +136,7 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                                     text_file.write("There are " + str(missing_uploads) + " unsuccessful uploads in " + folder)                            
                             #currently images are still processed, despite missing uploads
                             image_count.append(successful_uploads)
-                        elif (i > 10):
+                        elif (i > 4):
                             break
         list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])  #glob.glob(folder + '/*.JPG')    
         folderList.append(folder)

@@ -102,7 +102,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     alignment_check = 1
     max_iter = 10
     iter = 0
-    while alignment_check > 0.05:
+    while alignment_check > 0.02:
         realign_list = list()
         for camera in chunk.cameras:
             if not camera.transform:
@@ -186,7 +186,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
 
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
-    chunk.exportOrthomosaic(path = ortho_out)
+    chunk.exportOrthomosaic(path = ortho_out, tiff_big = True)
     doc.clear()
 
 #Start of execution
@@ -233,7 +233,7 @@ try:
                 toc = time.clock()
                 #write processing time to log file
                 processing_time = toc - tic
-                logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(output[0])) + " finished in " + str(processing_time) + " seconds I guess")
+                logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(ortho_out)) + " finished in " + str(processing_time) + " seconds I guess")
                 #after succesful processing move proces txt files
                 shutil.move(input_file, processing_archive_path)
                 nr_of_plots += 1
@@ -258,7 +258,7 @@ try:
             except Exception:
                 timestr = time.strftime("%Y%m%d-%H%M%S")
                 logging.info("Error encountered at the following time: " + str(timestr))
-                logging.info("Error in processing " + str(os.path.dirname(output[0])))
+                logging.info("Error in processing " + str(os.path.dirname(ortho_out)))
                 logging.exception("Metashape processing encountered the following problem:")
                 logging.info("\n")
     with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
