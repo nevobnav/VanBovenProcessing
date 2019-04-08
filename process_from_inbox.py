@@ -13,6 +13,8 @@ import pandas as pd
 import subprocess
 import paramiko
 from gdal2tilesp import gdal2tilesp
+import logging
+
 
 ## FUNCTIONS ##
 
@@ -60,9 +62,9 @@ def cmd_and_wait(ssh,command):
 
 ## CONFIG SECTION ##
 inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #folder where all orthos are stored
-#ortho_archive_destination = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #Folder where orthos are archived (gdrive)
+ortho_archive_destination = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #Folder where orthos are archived (gdrive)
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
-
+logfolder = os.path.join(inbox,'logfiles')
 gdal2tilesp_location = os.path.join(Path.cwd(),'gdal2tilesp','gdal2tilesp.py') #location of gdal2tiles.py folder
 
 
@@ -80,6 +82,11 @@ duplicate = 0
 
 
 ## Creating log file:
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+logging.basicConfig(filename = + str(timestr) + "_process_from_inbox_log_file.log",level=logging.DEBUG)
+
+
 logdir = inbox.rsplit('/',1)[0] #get parent of 'ready' folder, which is the Inbox
 logfile = '{}_log.txt'.format(datetime.datetime.now().strftime('%Y%m%d'))
 logpath_base = os.path.join(logdir,logfile)
@@ -230,4 +237,6 @@ for ortho in ortho_que:
     f.write('    Finished processing {} in {} minutes\n \n'.\
     format(filename,round((start_ortho_time-end_ortho_time)/60)))
 
-f.close()
+    plot_id = plotname2id(plotname, meta,con)
+    insert_new_scan(scan_id, plot_id, meta, con)
+    print("Added scan {} to plot {}: {}".format(scan_id,plot_id,plotname))
