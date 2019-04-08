@@ -1,3 +1,5 @@
+## This code is now redundant. New version available in 'process_from_inbox.pyss'
+
 import paramiko
 import os,time
 import shutil
@@ -48,9 +50,6 @@ customer_pk = get_plot_customer(plotname, meta, con)
 customer_id = get_customer_id(customer_pk,meta,con)
 con.connect().close()
 print('Customer id: ',customer_id)
-full_remote_path = (remote_path + customer_id + '/' + plotname + '/').replace(' ','\ ')
-
-print('Remote path: ', full_remote_path)
 
 #Create zipfile of tile folder
 if False:
