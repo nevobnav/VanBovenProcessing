@@ -57,6 +57,8 @@ root_path = r'E:\VanBovenDrive\VanBoven MT\Opnames'
 #steps_to_uploads is the number of folders starting from the root drive untill the uploads folder
 #for example: in the folder "E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
 steps_to_uploads = 6
+#the last number of days to process, standard only the last week is considered for new uploads
+nr_of_days_to_process = 200
 #the maximum time in seconds allowed between images to be considered from the same flight
 max_time_diff = 130
 #minimum nr of images per ha needed to process a flight
@@ -68,7 +70,7 @@ port = 5432
 #steps_to_uploads is the number of folders starting from the root drive untill the uploads folder
 #for example: in the folder "E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
 
-def getListOfFolders(root_path, steps_to_uploads):
+def getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process):
     #get a list of all folders
     folderList = pd.DataFrame([x[0] for x in os.walk(root_path)], columns = ['Path'])
     #select all folders with new uploaded images
@@ -81,7 +83,7 @@ def getListOfFolders(root_path, steps_to_uploads):
     uploads['Date'] = uploads['Day'].apply(lambda x:pd.to_datetime(x, format = '%Y%m%d'))
     #get the last 7 days of uploading
     today = datetime.date.today()
-    week_ago = today - datetime.timedelta(days=7)
+    week_ago = today - datetime.timedelta(days=nr_of_days_to_process)
     new_uploads = uploads[uploads['Date'] > week_ago]
     #continue only when there are new uploads
     if len(new_uploads) > 0:
@@ -128,21 +130,28 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                         elif (line.startswith('Successful uploads')) or (line.startswith('Succesfull uploads')):
                             upload_info = line[20:-3]
                             upload_numbers = [int(s) for s in upload_info.split() if s.isdigit()]
-                            successful_uploads, all_images = upload_numbers
-                            #check if upload was successful and log info otherwise
-                            if all_images - successful_uploads > 1:
-                                missing_uploads = all_images - successful_uploads
-                                with open(r'C:\Users\VanBoven\Documents\Temp_processing_files\Error_logs\upload_error_in_' +str(link[58:-9])+".txt", "w") as text_file:
-                                    text_file.write("There are " + str(missing_uploads) + " unsuccessful uploads in " + folder)                            
+                            try:
+                                successful_uploads, all_images = upload_numbers
+                                #check if upload was successful and log info otherwise
+                                if all_images - successful_uploads > 1:
+                                    missing_uploads = all_images - successful_uploads
+                                    with open(r'C:\Users\VanBoven\Documents\Temp_processing_files\Error_logs\upload_error_in_' +str(link[58:-9])+".txt", "w") as text_file:
+                                        text_file.write("There are " + str(missing_uploads) + " unsuccessful uploads in " + folder)                            
+                            except:
+                                logging.exception(".exit is not compatible with current format")
+
                             #currently images are still processed, despite missing uploads
-                            image_count.append(successful_uploads)
                         elif (i > 4):
                             break
+        #beun oplossing, hier moet alleen jpg geteld worden
+        image_count.append(len(os.listdir(folder))-2)
         list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])  #glob.glob(folder + '/*.JPG')    
         folderList.append(folder)
         image_names.append(list_of_images)
-        if len(time_finished) < 1:
+        if len(time_finished) < len(folderList):
             time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
+        #if len(time_finished) < 1:
+            #time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
     #Create dataframe with all information for processing and sort based on datetime
     files_to_process = pd.DataFrame({'Path': folderList, 'Image_names': image_names, 'Time_finished_uploading': time_finished, 'Image_count': image_count})
     files_to_process['Processing_order'] = files_to_process['Time_finished_uploading'].rank(ascending=1)
@@ -204,7 +213,7 @@ def connect(config_file_path, port):
 def get_customer_pk(customer_id,meta,con):
     customers = meta.tables['portal_customer']
     query = select([customers.c.id])
-    query = query.where(customers.c.customer_id == customer_id)
+    query = query.where(customers.c.customer_name == customer_id)
     res = con.execute(query)
     for result in res:
         customer_pk = result[0]
@@ -255,14 +264,21 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         get_customer_name = [re.search('c' + '\d+' + '_' + '.*', subdir) for subdir in dirs]
         customer = [customer.group(0) for customer in get_customer_name if customer]
         customer_id = customer[0]
+        #get recoring date
+        date_of_recording = os.path.basename(folder)
         #get the image names and path        
         images = pd.DataFrame({'Image_names':files_to_process['Image_names'].iloc[z]})
+        #read metadata
+        metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getExif(PIL.Image.open(os.path.join(folder, x))))})
         #get altitude from Exif data        
-        images['Altitude'] = images['Image_names'].apply(lambda x:pd.Series({'Alt':(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][0])/(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][1])}))
-        #get the coordinates of the images from the metadata
+        #images['Altitude'] = images['Image_names'].apply(lambda x:pd.Series({'Alt':(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][0])/(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][1])}))
+        images['Altitude'] = metadata['Metadata'].apply(lambda x:pd.Series({'Alt':(x.get('GPSInfo')[6][0])/(x.get('GPSInfo')[6][1])}))
+        #get the coordinates of the images from the metadata this function has to be improved to used metadata dataframe instead of image metadata with PIL
         images['Coords'] = images['Image_names'].apply(lambda x:pd.Series({'Coords':Point(get_image_coords(folder, x))}))        
         #get the date and time of the images from the metadata
-        images['DateTime'] = images['Image_names'].apply(lambda x:pd.to_datetime(getExif(PIL.Image.open(os.path.join(folder, x))).get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
+        images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
+        images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ISOSpeedRatings'))}))
+        images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExposureTime')[1]/x.get('ExposureTime')[0])}))
         images = images.sort_values(by='DateTime', ascending=True)
         images = images.reset_index(drop=True)     
         #Group images from the same flights
@@ -272,7 +288,18 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         timestr = time.strftime("%Y%m%d-%H%M%S")
         #logging.info(str(images['Groupby_nr'].max()) + " image groups at " + str(timestr))
         total_upload = images.copy()
-
+        exp_test = pd.DataFrame({'exp_test':images['Exposure_time'] == 320})
+        iso_min = images['ISO'].min()
+        iso_max = images['ISO'].max()
+        if not exp_test['exp_test'].all():
+            with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
+                f.write(str('Not all images have exposure of 1/320\n'))
+                f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
+        if iso_max > 800:
+            with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
+                f.write(str('Iso value was > 800, check quality and reason.\n'))
+                f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
+                
         #get plots of customer from DB
         pk = get_customer_pk(customer_id,meta,con)
         plot_names, plot_ids = get_customer_plots(customer_id, meta, con)
@@ -329,8 +356,16 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             unknown_plot[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
             with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
                 f.write(str(plot_name))
-
-"""
+        for plot_name in plot_names:
+            total_upload.loc[total_upload[str(plot_name)] == True, 'Plot'] = str(plot_name)
+            total_upload = total_upload.drop(columns=[str(plot_name)])
+        total_upload['Altitude_difference'] = total_upload['Altitude'].diff()    
+        total_upload['Time_after_previous'] = total_upload['DateTime'].diff().astype('timedelta64[s]')
+        total_upload['Time_before_next'] = total_upload['DateTime'].shift(-1).diff().astype('timedelta64[s]')
+        total_upload['Groupby_nr'] = np.where((abs(total_upload['Altitude_difference']) > 18),1,0).cumsum() 
+        total_upload.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+"_image_groups.csv")    
+        
+    """
         #check for images 
         #Loop through images per flight
         for j in range(images['Groupby_nr'].max()):
@@ -394,15 +429,15 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_random_images.txt', sep = ',', header = False, index = False)
 """
                 
-def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port):
-    new_finished_uploads = getListOfFolders(root_path, steps_to_uploads)    
+def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process):
+    new_finished_uploads = getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process)    
     if new_finished_uploads is not None:
         files_to_process = CreateProcessingOrderUploads(new_finished_uploads)
         con, meta = connect(config_file_path, port)
         GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta)
         
 try:
-    processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port)
+    processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process)
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")
     logging.info("Error encountered at the following time: " + str(timestr))

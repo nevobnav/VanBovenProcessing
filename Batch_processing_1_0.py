@@ -95,6 +95,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     ## Perform image matching for the chunk frame.
     # - Alignment accuracy in [HighestAccuracy, HighAccuracy, MediumAccuracy, LowAccuracy, LowestAccuracy]
     # - Image pair preselection in [ReferencePreselection, GenericPreselection, NoPreselection]
+    tic = time.clock()
     chunk.matchPhotos(accuracy=Metashape.HighestAccuracy, preselection=Metashape.ReferencePreselection, filter_mask=False, keypoint_limit=40000, tiepoint_limit=4000)
     chunk.alignCameras()
 
@@ -107,13 +108,19 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
         for camera in chunk.cameras:
             if not camera.transform:
                 realign_list.append(camera)
-        if (len(realign_list)//len(chunk.cameras) > 0):
+        if (len(realign_list)/len(chunk.cameras) > 0):
             chunk.alignCameras(cameras = realign_list)
-        alignment_check = len(realign_list)//len(chunk.cameras)
+        alignment_check = len(realign_list)/len(chunk.cameras)
         iter += 1
         if iter == max_iter:
             break
-
+    toc = time.clock()
+    processing_time = toc - tic
+    logging.info("Image alignment took " + str(int(processing_time)) + " seconds" )
+    logging.info("alignment took "+str(iter) + " iterations")
+    logging.info("A total of " + str(len(realign_list)) + " out of " + str(len(chunk.cameras)) + " images has been aligned")
+    
+    tic = time.clock()
     #optional incteratively increase camera accuracy
     threshold = 0.5
     f = Metashape.PointCloud.Filter()
@@ -123,7 +130,10 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     chunk.optimizeCameras(fit_f=True, fit_cx=True, fit_cy=True, fit_b1=True, fit_b2=True, fit_k1=True,
     fit_k2=True, fit_k3=True, fit_k4=False, fit_p1=True, fit_p2=True, fit_p3=False,
     fit_p4=False, adaptive_fitting=False, tiepoint_covariance=False)
-
+    toc = time.clock()
+    processing_time = toc - tic
+    logging.info("Camera optimization took "+str(int(processing_time)) + " seconds")
+    
     ################################################################################################
     ### build dense cloud ###
     ## Generate depth maps for the chunk.
@@ -131,9 +141,13 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     # - Dense point cloud quality in [UltraQuality, HighQuality, MediumQuality, LowQuality, LowestQuality]
     #every step lower dan UltraQuality downscales the images by a factor 4 (2x per side)
     # - Depth filtering mode in [AggressiveFiltering, ModerateFiltering, MildFiltering, NoFiltering]
+    tic = time.clock()
     chunk.buildDepthMaps(quality=Metashape.LowQuality, filter=Metashape.MildFiltering)
     chunk.buildDenseCloud(max_neighbors = 100, point_colors = False)
-
+    toc = time.clock()
+    processing_time = toc - tic
+    logging.info("Dense cloud generation took " + str(int(processing_time)) + " seconds")
+    
     ################################################################################################
     ### build mesh ###
     ## Generate model for the chunk frame.
@@ -164,15 +178,21 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     ## Build elevation model for the chunk.
     # buildDem(source=DenseCloudData, interpolation=EnabledInterpolation[, projection ][, region ][, classes][, progress])
     # - Data source in [PointCloudData, DenseCloudData, ModelData, ElevationData]
+    tic = time.clock()
     chunk.buildDem(source=Metashape.DenseCloudData, interpolation=Metashape.EnabledInterpolation, projection=chunk.crs)
-
+    toc = time.clock()
+    processing_time = toc - tic
+    logging.info("DEM generation took "+str(int(processing_time))+" seconds")
     ################################################################################################
     ## Build orthomosaic for the chunk.
     # buildOrthomosaic(surface=ElevationData, blending=MosaicBlending, color_correction=False[, projection ][, region ][, dx ][, dy ][, progress])
     # - Data source in [PointCloudData, DenseCloudData, ModelData, ElevationData]
     # - Blending mode in [AverageBlending, MosaicBlending, MinBlending, MaxBlending, DisabledBlending]
+    tic = time.clock()
     chunk.buildOrthomosaic(surface=Metashape.ElevationData, blending=Metashape.MosaicBlending, projection=chunk.crs)
-
+    toc = time.clock()
+    processing_time = toc - tic
+    logging.info("Orthomosaic generation took "+str(int(processing_time))+" seconds")
     ################################################################################################
     ## auto classify ground points (optional)
     #chunk.dense_cloud.classifyGroundPoints()
@@ -186,7 +206,12 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
 
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
+    tic = time.clock()
     chunk.exportOrthomosaic(path = ortho_out, tiff_big = True)
+    toc = time.clock()
+    processing_time = toc-tic
+    logging.info("Ortho export took "+str(int(processing_time))+" seconds")
+    logging.info('\n')
     doc.clear()
 
 #Start of execution
@@ -202,7 +227,7 @@ process_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_process'
 move_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_move'
 processing_archive_path = r'E:\VanBovenDrive\VanBoven MT\Processing\Archive'
 processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
-temp_processing_folder = r'C:\Users\VanBoven\Documents\Temp_processing_files\Metashape'
+temp_processing_folder = r'E:\Metashape'
 #execute:
 try:
     #keep track of processing
@@ -224,6 +249,9 @@ try:
             day_of_recording = os.path.basename(os.path.dirname(photoList[0]))
             metashape_processing_folder = os.path.join(temp_processing_folder, customer_id, plot_id)
             ortho_out = os.path.join(processing_folder, customer_id + '-'+plot_id+'-'+day_of_recording+'.tif')
+            logging.info("Customer = " + str(customer_id))
+            logging.info("Day of recording = " + str(day_of_recording))
+            logging.info("Plot name = " + str(plot_id))
             try:
                 #register start time of metashape process
                 tic = time.clock()
@@ -233,7 +261,7 @@ try:
                 toc = time.clock()
                 #write processing time to log file
                 processing_time = toc - tic
-                logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(ortho_out)) + " finished in " + str(processing_time) + " seconds I guess")
+                logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(ortho_out)) + " finished in " + str(int(processing_time)) + " seconds")
                 #after succesful processing move proces txt files
                 shutil.move(input_file, processing_archive_path)
                 nr_of_plots += 1
@@ -261,8 +289,8 @@ try:
                 logging.info("Error in processing " + str(os.path.dirname(ortho_out)))
                 logging.exception("Metashape processing encountered the following problem:")
                 logging.info("\n")
-    with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
-        text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
+        with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
+            text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")
     logging.info("Error encountered at the following time: " + str(timestr))
