@@ -363,7 +363,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         total_upload['Time_after_previous'] = total_upload['DateTime'].diff().astype('timedelta64[s]')
         total_upload['Time_before_next'] = total_upload['DateTime'].shift(-1).diff().astype('timedelta64[s]')
         total_upload['Groupby_nr'] = np.where((abs(total_upload['Altitude_difference']) > 18),1,0).cumsum() 
-        total_upload.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+"_image_groups.csv")    
+        total_upload.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) +"_image_groups.csv")    
         
     """
         #check for images 

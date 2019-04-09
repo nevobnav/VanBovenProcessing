@@ -63,8 +63,8 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
 
     ## save project
     #doc.open("M:/Metashape/practise.psx")
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    psxfile = metashape_processing_folder + '\\' + str(timestr)+'.psx'
+    timestr_save = time.strftime("%Y%m%d-%H%M%S")
+    psxfile = metashape_processing_folder + '\\' + str(day_of_recording) + "_" + str(timestr_save)+'.psx'
     doc.save( psxfile )
     print ('&amp;gt;&amp;gt; Saved to: ' + psxfile)
 
@@ -171,7 +171,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
 
     ################################################################################################
     ## save the project before build the DEM and Ortho images
-    doc.save()
+    doc.save(psxfile)
 
     ################################################################################################
     ### build DEM (before build dem, you need to save the project into psx) ###
@@ -199,7 +199,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     #chunk.buildDem(source=Metashape.DenseCloudData, classes=[2])
 
     ################################################################################################
-    doc.save()
+    doc.save(psxfile)
 
     #if not os.path.exists(temp_processing_folder+"\\Orthomosaic\\"):
         #os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
@@ -207,11 +207,10 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
     tic = time.clock()
-    chunk.exportOrthomosaic(path = ortho_out, tiff_big = True)
+    chunk.exportOrthomosaic(path = ortho_out, tiff_big = True) #, jpeg_quality(75)
     toc = time.clock()
     processing_time = toc-tic
     logging.info("Ortho export took "+str(int(processing_time))+" seconds")
-    logging.info('\n')
     doc.clear()
 
 #Start of execution
@@ -261,7 +260,7 @@ try:
                 toc = time.clock()
                 #write processing time to log file
                 processing_time = toc - tic
-                logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(ortho_out)) + " finished in " + str(int(processing_time)) + " seconds")
+                logging.info("processing of " + str(len(photoList)) + " images in " + str(os.path.dirname(photoList[0])) + " finished in " + str(int(processing_time)) + " seconds \n")
                 #after succesful processing move proces txt files
                 shutil.move(input_file, processing_archive_path)
                 nr_of_plots += 1
@@ -297,6 +296,7 @@ except Exception:
     logging.exception("something went wrong reading processing file:")
     logging.info("\n")
 
+"""
 #after metashape processing is finished move images to archive
 try:
     for proces_file in os.listdir(move_path):
@@ -323,3 +323,4 @@ except Exception:
     logging.info("Error encountered at the following time: " + str(timestr))
     logging.exception("problem with (re)moving failed_imagery")
     logging.info("\n")
+"""
