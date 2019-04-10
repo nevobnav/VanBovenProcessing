@@ -164,7 +164,7 @@ for ortho in ortho_que:
         newtile = False
     else:
         newtile = True
-    os.mkdir(output_folder)
+        os.mkdir(output_folder)
     batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
 
     #Would be great if we can use the direct python funciton. This requires either building an options args element, or manually fixing gdal2tiles.py
