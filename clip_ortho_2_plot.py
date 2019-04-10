@@ -22,7 +22,7 @@ port = 5432
 
 def clip_ortho2plot(this_plot_name, con, meta, ortho_ready_inbox, file):
     with rasterio.open(os.path.join(ortho_ready_inbox, file)) as src:
-        geometry = to_shape(get_plot_shape(this_plot_name, meta, con))
+        geometry = to_shape(get_plot_shape(this_plot_name, meta, con)).buffer(0.00006)
         geo = gpd.GeoDataFrame({'geometry': geometry}, index=[0], crs=from_epsg(4326))
         coords = getFeatures(geo)
         out_image, out_transform = rasterio.mask.mask(src, coords, crop=True)

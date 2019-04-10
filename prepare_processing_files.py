@@ -118,11 +118,11 @@ def CreateProcessingOrderUploads(new_finished_uploads):
     for folder in new_finished_uploads.Path:
         for file in os.listdir(folder):
         #extract the number of uploaded images and the time when uploading was finished from exit metadata file
-            if 'exit' in file:
+            if file.endswith('exit.txt'):
                 link = os.path.join(folder, file)              
                 with open(link) as fp:
                     for i, line in enumerate(fp):
-                        if line.startswith('Time'):
+                        if (line.startswith('Time')) and (i < 3):
                             date_time = line.replace('Time: ', '').rstrip()
                             date_time_obj = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
                             time_finished.append(date_time_obj)
