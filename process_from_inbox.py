@@ -53,7 +53,7 @@ def cmd_and_wait(ssh,command):
     while not stdout.channel.eof_received:
         time.sleep(1)
         sleeptime += 1
-        if sleeptime > 600:
+        if sleeptime > 1800:
             stdout.channel.close()
             logging.info('Broke out of cmd_and_wait with command {}'.format(command))
             break
