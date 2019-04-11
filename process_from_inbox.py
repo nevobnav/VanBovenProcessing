@@ -17,10 +17,65 @@ from clip_ortho_2_plot import clip_ortho2plot
 import logging
 from vanbovendatabase.postgres_lib import *
 import datetime
+import select
 
 
 
 ## FUNCTIONS ##
+
+def exec_ssh(ssh, cmd, timeout=1200, want_exitcode=False):
+    #source: https://stackoverflow.com/questions/23504126/do-you-have-to-check-exit-status-ready-if-you-are-going-to-check-recv-ready/32758464#32758464
+    # one channel per command
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    # get the shared channel for stdout/stderr/stdin
+    channel = stdout.channel
+    # we do not need stdin.
+    stdin.close()
+    # indicate that we're not going to write to that channel anymore
+    channel.shutdown_write()
+
+    # read stdout/stderr in order to prevent read block hangs
+    stdout_chunks = []
+    stdout_chunks.append(stdout.channel.recv(len(stdout.channel.in_buffer)))
+    # chunked read to prevent stalls
+    while not channel.closed or channel.recv_ready() or channel.recv_stderr_ready():
+      # stop if channel was closed prematurely, and there is no data in the buffers.
+      got_chunk = False
+      readq, _, _ = select.select([stdout.channel], [], [], timeout)
+      for c in readq:
+          if c.recv_ready():
+              stdout_chunks.append(stdout.channel.recv(len(c.in_buffer)))
+              got_chunk = True
+          if c.recv_stderr_ready():
+              # make sure to read stderr to prevent stall
+              stderr.channel.recv_stderr(len(c.in_stderr_buffer))
+              got_chunk = True
+      '''
+      1) make sure that there are at least 2 cycles with no data in the input buffers in order to not exit too early (i.e. cat on a >200k file).
+      2) if no data arrived in the last loop, check if we already received the exit code
+      3) check if input buffers are empty
+      4) exit the loop
+      '''
+      if not got_chunk \
+          and stdout.channel.exit_status_ready() \
+          and not stderr.channel.recv_stderr_ready() \
+          and not stdout.channel.recv_ready():
+          # indicate that we're not going to read from this channel anymore
+          stdout.channel.shutdown_read()
+          # close the channel
+          stdout.channel.close()
+          break    # exit as remote side is finished and our bufferes are empty
+
+    # close all the pseudofiles
+    stdout.close()
+    stderr.close()
+
+    if want_exitcode:
+        #exit code is always ready at this point
+        return (stdout.channel.recv_exit_status())
+    return stdout_chunks
+
+
 
 def mkpath(sftp,path):
     #Function mkpath takes in sftp object and a desired path. The function starts
@@ -39,28 +94,6 @@ def mkpath(sftp,path):
         except IOError:
             mkpath(sftp,parent)
         sftp.mkdir(path)
-
-def cmd_and_wait(ssh,command):
-    #Function cmd_and_wait opens an ssh channel and runs a command (command). It then
-    # waits until it receives 'eof' before it returns. Without this waiting function
-    #the channel would remain open until sftp.close() is called, which may not be long
-    #enough to run the entire command.
-    sleeptime = 0
-    stdin, stdout, stderr = ssh.exec_command(command)
-    stdout.flush()
-    nbytes = 0
-
-    while not stdout.channel.eof_received:
-        time.sleep(1)
-        sleeptime += 1
-        if sleeptime > 1800:
-            stdout.channel.close()
-            logging.info('Broke out of cmd_and_wait with command {}'.format(command))
-            break
-    #if stdout.channel.eof_received:
-    logging.info('Reached end of cmd_and_wait')
-    #logging.info(stdout.read())
-    return stdout.channel.eof_received, stdout
 
 
 
@@ -125,7 +158,6 @@ tile_output_base_dir = os.path.join(inbox,'temp_tiles')
 if not(os.path.isdir(tile_output_base_dir)):
     os.mkdir(tile_output_base_dir)
 #Loop trough all available tifs and tile them.
-
 for ortho in ortho_que:
     start_ortho_time = time.time()
     print('Started with {} at {}'.format(ortho,datetime.datetime.now().strftime('%H:%M:%S')))
@@ -204,7 +236,7 @@ for ortho in ortho_que:
     #upload zip to remote_dir
     full_remote_zip_path = remote_base + '/' + filename.split('.')[0] + '.zip'
     start_upload_time = time.time()
-    logging.info('starting to upload',local_zipfile)
+    logging.info('starting to upload {}'.format(local_zipfile))
     remote_attr = sftp.put(local_zipfile,full_remote_zip_path)
     filesize = os.path.getsize(local_zipfile)
     end_upload_time = time.time()
@@ -213,13 +245,13 @@ for ortho in ortho_que:
 
     if remote_attr.st_size == filesize:
         msg = '    Succesfull upload: {}/{} MB in {} minutes at {} Mb/s.\n'.\
-        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-end_upload_time)/60),up_speed)
+        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-start_upload_time)/60),up_speed)
         logging.info(msg)
         os.remove(local_zipfile)
         upload_success = True
     else:
         msg = '    Failed upload: {}/{} MB in {} minutes at {} Mb/s.\n'.\
-        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-end_upload_time)/60),up_speed)
+        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-start_upload_time)/60),up_speed)
         logging.info(msg)
         upload_success = False
 
@@ -230,17 +262,23 @@ for ortho in ortho_que:
     command_unzip = 'unzip ' + "'"+ full_remote_zip_path + "'" + ' -d ' + "'" + remote_unzip_location + "'"
     command_removezip = 'rm ' + "'"+ full_remote_zip_path + "'"
 
-    logging.info('unzipping ',command_unzip)
+    logging.info('unzipping {}'.format(command_unzip))
     #Create folders and execute commands
     mkpath(sftp,remote_unzip_location)
 
 
-    logging.info('    Unzipping...\n')
-    cmd_and_wait(ssh,command_unzip)
-    logging.info('deleting ',remote_unzip_location)
+    start_zip_time = time.time()
+
+    zip_output = exec_ssh(ssh, command_unzip)
+    end_zip_time = time.time()
+    logging.info('    Unzipped in {} seconds. \n'.format(end_zip_time - start_zip_time))
+
+    logging.info('deleting {}. \n'.format(remote_unzip_location))
     #delete zip file from webserver
-    logging.info('    Cleaning up...\n')
-    cmd_and_wait(ssh,command_removezip)
+    start_delete_time = time.time()
+    exec_ssh(ssh,command_removezip)
+    end_delete_time = time.time()
+    logging.info('deleted in {} seconds. \n'.format(end_delete_time - start_delete_time))
     sftp.close()
     logging.info('moving files')
     #Move orthomosaic to correct folder
