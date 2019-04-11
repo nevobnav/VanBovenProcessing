@@ -53,11 +53,12 @@ def cmd_and_wait(ssh,command):
     while not stdout.channel.eof_received:
         time.sleep(1)
         sleeptime += 1
-        if sleeptime > 300:
+        if sleeptime > 600:
             stdout.channel.close()
+            logging.info('Broke out of cmd_and_wait with command {}'.format(command))
             break
     #if stdout.channel.eof_received:
-        logging.info('Reached end of cmd_and_wait')
+    logging.info('Reached end of cmd_and_wait')
     #logging.info(stdout.read())
     return stdout.channel.eof_received, stdout
 
@@ -205,16 +206,18 @@ for ortho in ortho_que:
     remote_attr = sftp.put(local_zipfile,full_remote_zip_path)
     filesize = os.path.getsize(local_zipfile)
     end_upload_time = time.time()
+    up_speed = filesize/(end_upload_time - start_upload_time))/1000000
+
 
     if remote_attr.st_size == filesize:
-        msg = '    Succesfull upload: {}/{} MB in {} minutes.\n'.\
-        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-end_upload_time)/60) )
+        msg = '    Succesfull upload: {}/{} MB in {} minutes at {} Mb/s.\n'.\
+        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-end_upload_time)/60),up_speed)
         logging.info(msg)
         os.remove(local_zipfile)
         upload_success = True
     else:
-        msg = '    Failed upload: {}/{} MB in {} minutes.\n'.\
-        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-end_upload_time)/60) )
+        msg = '    Failed upload: {}/{} MB in {} minutes at {} Mb/s.\n'.\
+        format(remote_attr.st_size/1e6, filesize/1e6,round((end_upload_time-end_upload_time)/60),up_speed)
         logging.info(msg)
         upload_success = False
 
