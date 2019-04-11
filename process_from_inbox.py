@@ -84,11 +84,13 @@ tif_count = 0
 duplicate = 0
 timestr = datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')
 datestr = datetime.datetime.now().strftime('%Y%m%d')
+timestr_filename = datetime.datetime.now().strftime('%Y%m%d_%H-%M-%S')
+
 
 
 ## Creating log file:
 logdir = inbox.rsplit('/',1)[0] #get parent of 'ready' folder, which is the Inbox
-logfile = '{}_log.txt'.format(datestr)
+logfile = '{}_log.txt'.format(timestr_filename)
 logpath_base = os.path.join(logdir,logfile)
 logpath = logpath_base
 while os.path.isfile(logpath):
