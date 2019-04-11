@@ -208,7 +208,7 @@ for ortho in ortho_que:
     remote_attr = sftp.put(local_zipfile,full_remote_zip_path)
     filesize = os.path.getsize(local_zipfile)
     end_upload_time = time.time()
-    up_speed = filesize/(end_upload_time - start_upload_time))/1000000
+    up_speed = filesize/(end_upload_time - start_upload_time)/1000000
 
 
     if remote_attr.st_size == filesize:
