@@ -53,13 +53,12 @@ def cmd_and_wait(ssh,command):
     while not stdout.channel.eof_received:
         time.sleep(1)
         sleeptime += 1
-        logging.info(sleeptime)
         if sleeptime > 300:
             stdout.channel.close()
             break
-    if stdout.channel.eof_received:
-        logging.info('EoF received!')
-    logging.info(stdout.read())
+    #if stdout.channel.eof_received:
+        logging.info('Reached end of cmd_and_wait')
+    #logging.info(stdout.read())
     return stdout.channel.eof_received, stdout
 
 
@@ -68,7 +67,6 @@ def cmd_and_wait(ssh,command):
 inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #folder where all orthos are stored
 ortho_archive_destination = r'E:\VanBovenDrive\VanBoven MT\Archive' #Folder where orthos are archived (gdrive)
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
-gdal2tilesp_location = os.path.join(Path.cwd(),'gdal2tilesp','gdal2tilesp.py') #location of gdal2tiles.py folder
 
 
 with open('postgis_config.json') as config_file:
@@ -127,7 +125,7 @@ if not(os.path.isdir(tile_output_base_dir)):
 
 for ortho in ortho_que:
     start_ortho_time = time.time()
-    print('Started with {} at {}'.format(ortho,start_ortho_time))
+    print('Started with {} at {}'.format(ortho,datetime.datetime.now().strftime('%H:%M:%S')))
 
     #Read dict
     customer_name = ortho['customer_name']
@@ -164,9 +162,9 @@ for ortho in ortho_que:
         newtile = False
     else:
         newtile = True
-        os.mkdir(output_folder)
+    os.mkdir(output_folder)
     batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
-
+    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none -o tms'
     #Would be great if we can use the direct python funciton. This requires either building an options args element, or manually fixing gdal2tiles.py
     #argv= gdal.GeneralCmdLineProcessor(['"'+str(input_file)+'"','"'+str(output_folder)+'"','--processes' ,'14' ,'-z', '16-23', '-w' ,'none'])
     #input_file, output_folder, options = process_args(argv[1:])
@@ -243,8 +241,11 @@ for ortho in ortho_que:
     #Move orthomosaic to correct folder
     if not(os.path.isdir(ortho_archive_target)):
         os.makedirs(ortho_archive_target)
+
+    #Moving original and clipped ortho to archive
     shutil.move(input_file,os.path.join(ortho_archive_target,filename_clipped))
-    os.remove(os.path.join(inbox,filename))
+    shutil.move(os.path.join(inbox,filename),os.path.join(ortho_archive_target,filename))
+
 
     end_ortho_time = time.time()
     logging.info('    Finished processing {} in {} minutes\n \n'.\

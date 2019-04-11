@@ -119,7 +119,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     logging.info("Image alignment took " + str(int(processing_time)) + " seconds" )
     logging.info("alignment took "+str(iter) + " iterations")
     logging.info("A total of " + str(len(realign_list)) + " out of " + str(len(chunk.cameras)) + " images has been aligned")
-    
+
     tic = time.clock()
     #optional incteratively increase camera accuracy
     threshold = 0.5
@@ -133,7 +133,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     toc = time.clock()
     processing_time = toc - tic
     logging.info("Camera optimization took "+str(int(processing_time)) + " seconds")
-    
+
     ################################################################################################
     ### build dense cloud ###
     ## Generate depth maps for the chunk.
@@ -147,7 +147,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     toc = time.clock()
     processing_time = toc - tic
     logging.info("Dense cloud generation took " + str(int(processing_time)) + " seconds")
-    
+
     ################################################################################################
     ### build mesh ###
     ## Generate model for the chunk frame.
@@ -265,6 +265,9 @@ try:
                 shutil.move(input_file, processing_archive_path)
                 nr_of_plots += 1
                 nr_of_images += len(photoList)
+                with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
+                    text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
+
                 """
                 This part of code is redundant now
                 try:
@@ -288,8 +291,6 @@ try:
                 logging.info("Error in processing " + str(os.path.dirname(ortho_out)))
                 logging.exception("Metashape processing encountered the following problem:")
                 logging.info("\n")
-        with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
-            text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")
     logging.info("Error encountered at the following time: " + str(timestr))

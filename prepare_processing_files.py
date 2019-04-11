@@ -12,7 +12,7 @@ Created on Mon Mar  4 18:21:17 2019
 2. check if all folders are finished with uploading
 3. Sort the list based on time in .exit file
 4. Split the groups of images per parcel using geometry of parcel
-5. Start processing in agisoft per parcel 
+5. Start processing in agisoft per parcel
 6. Export orthomosaic in folder of parcel
 7. Copy/cut images and move to archive
 """
@@ -39,7 +39,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import select
 from geoalchemy2 import Geometry
-from geoalchemy2.shape import to_shape 
+from geoalchemy2.shape import to_shape
 
 from functools import partial
 import pyproj
@@ -105,28 +105,28 @@ def getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process):
     else:
         timestr = time.strftime("%Y%m%d-%H%M%S")
         logging.info("No new uploads at " + str(timestr))
-        logging.info("\n") 
+        logging.info("\n")
 
 def CreateProcessingOrderUploads(new_finished_uploads):
-    #initiate lists to store relevant values per upload event, metashape needs a list of image paths as input. 
+    #initiate lists to store relevant values per upload event, metashape needs a list of image paths as input.
     #the time finished uploading is used to determine the processing order, and the number of images to determine if the number of images reflects a complete plot
     time_finished = []
     image_count = []
-    folderList = []  
+    folderList = []
     image_names = []
     #loop through folders with finished uploads and open init and exit metadata files
     for folder in new_finished_uploads.Path:
         for file in os.listdir(folder):
         #extract the number of uploaded images and the time when uploading was finished from exit metadata file
             if file.endswith('exit.txt'):
-                link = os.path.join(folder, file)              
+                link = os.path.join(folder, file)
                 with open(link) as fp:
                     for i, line in enumerate(fp):
                         if (line.startswith('Time')) and (i < 3):
                             date_time = line.replace('Time: ', '').rstrip()
                             date_time_obj = datetime.datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S')
                             time_finished.append(date_time_obj)
-                            
+
                         elif (line.startswith('Successful uploads')) or (line.startswith('Succesfull uploads')):
                             upload_info = line[20:-3]
                             upload_numbers = [int(s) for s in upload_info.split() if s.isdigit()]
@@ -136,7 +136,7 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                                 if all_images - successful_uploads > 1:
                                     missing_uploads = all_images - successful_uploads
                                     with open(r'C:\Users\VanBoven\Documents\Temp_processing_files\Error_logs\upload_error_in_' +str(link[58:-9])+".txt", "w") as text_file:
-                                        text_file.write("There are " + str(missing_uploads) + " unsuccessful uploads in " + folder)                            
+                                        text_file.write("There are " + str(missing_uploads) + " unsuccessful uploads in " + folder)
                             except:
                                 logging.exception(".exit is not compatible with current format")
 
@@ -145,7 +145,7 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                             break
         #beun oplossing, hier moet alleen jpg geteld worden
         image_count.append(len(os.listdir(folder))-2)
-        list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])  #glob.glob(folder + '/*.JPG')    
+        list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])  #glob.glob(folder + '/*.JPG')
         folderList.append(folder)
         image_names.append(list_of_images)
         if len(time_finished) < len(folderList):
@@ -157,10 +157,10 @@ def CreateProcessingOrderUploads(new_finished_uploads):
     files_to_process['Processing_order'] = files_to_process['Time_finished_uploading'].rank(ascending=1)
     files_to_process = files_to_process.set_index(files_to_process['Time_finished_uploading'])
     files_to_process = files_to_process.sort_index(ascending=1)
-    return files_to_process    
+    return files_to_process
 
 #function to access image metadata
-def getExif(img):    
+def getExif(img):
     exif = {
     PIL.ExifTags.TAGS[k]: v
     for k, v in img._getexif().items()
@@ -169,7 +169,7 @@ def getExif(img):
     return exif
 
 def get_image_coords(folder, img):
-    gps_info = getExif(PIL.Image.open(os.path.join(folder, img))).get('GPSInfo')    
+    gps_info = getExif(PIL.Image.open(os.path.join(folder, img))).get('GPSInfo')
     d, m, s = gps_info[2]
     #get degrees, minutes, seconds for lat
     d_lat = d[0]/d[1]
@@ -184,20 +184,20 @@ def get_image_coords(folder, img):
     dd_lat = d_lat + float(m_lat)/60 + float(s_lat)/3600
     dd_lon = d_lon + float(m_lon)/60 + float(s_lon)/3600
     #create point geometry
-    coord = (dd_lon, dd_lat)    
+    coord = (dd_lon, dd_lat)
     return coord
 
 def connect(config_file_path, port):
     '''Returns a connection and a metadata object'''
 
-    with open(config_file_path) as config_file: 
+    with open(config_file_path) as config_file:
         config = json.load(config_file)
-        
+
     host=config.get("DB_IP")
     db=config.get("DB_NAME")
     user=config.get("DB_USER")
     password=config.get("DB_PASSWORD")
-    
+
     # We connect with the help of the PostgreSQL URL
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password, host, port, db)
@@ -254,7 +254,7 @@ def transform_geometry(geometry):
     pyproj.Proj(init='epsg:28992')) # destination coordinate system
     geometry = transform(project, geometry)  # apply projection
     return geometry
-    
+
 def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta):
     #loop through folders to process
     for z in range(len(files_to_process)):
@@ -266,23 +266,23 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         customer_id = customer[0]
         #get recoring date
         date_of_recording = os.path.basename(folder)
-        #get the image names and path        
+        #get the image names and path
         images = pd.DataFrame({'Image_names':files_to_process['Image_names'].iloc[z]})
         #read metadata
         metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getExif(PIL.Image.open(os.path.join(folder, x))))})
-        #get altitude from Exif data        
+        #get altitude from Exif data
         #images['Altitude'] = images['Image_names'].apply(lambda x:pd.Series({'Alt':(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][0])/(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][1])}))
         images['Altitude'] = metadata['Metadata'].apply(lambda x:pd.Series({'Alt':(x.get('GPSInfo')[6][0])/(x.get('GPSInfo')[6][1])}))
         #get the coordinates of the images from the metadata this function has to be improved to used metadata dataframe instead of image metadata with PIL
-        images['Coords'] = images['Image_names'].apply(lambda x:pd.Series({'Coords':Point(get_image_coords(folder, x))}))        
+        images['Coords'] = images['Image_names'].apply(lambda x:pd.Series({'Coords':Point(get_image_coords(folder, x))}))
         #get the date and time of the images from the metadata
         images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
         images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ISOSpeedRatings'))}))
         images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExposureTime')[1]/x.get('ExposureTime')[0])}))
         images = images.sort_values(by='DateTime', ascending=True)
-        images = images.reset_index(drop=True)     
+        images = images.reset_index(drop=True)
         #Group images from the same flights
-        #images['Groupby_nr'] = np.where(((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] < max_time_diff)) | ((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] > max_time_diff)),1,0).cumsum() 
+        #images['Groupby_nr'] = np.where(((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] < max_time_diff)) | ((images['Time_after_previous'] > max_time_diff ) & (images['Time_before_next'] > max_time_diff)),1,0).cumsum()
         images['Input_folder'] = images['Image_names'].apply(lambda x:os.path.join(folder, x))
         #log the number of image groups for possible debugging
         timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -299,17 +299,17 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
                 f.write(str('Iso value was > 800, check quality and reason.\n'))
                 f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
-                
+
         #get plots of customer from DB
         pk = get_customer_pk(customer_id,meta,con)
         plot_names, plot_ids = get_customer_plots(customer_id, meta, con)
-        
+
         #check per plot for intersecting images and create a file for processing
         for i, plot_id in enumerate(plot_ids):
             #create copy of images for because the merge step ads column to the file
             temp = images.copy()
             #convert wkb element to shapely geometry and create a buffer around the shape of approx. 10 meters (unit is decimal degrees)
-            geometry = to_shape(get_plot_shape(plot_id, meta, con)) 
+            geometry = to_shape(get_plot_shape(plot_id, meta, con))
             geometry_transformed = transform_geometry(geometry)
             geometry_buffered = geometry.buffer(0.0001)
             #select intersecting images
@@ -320,28 +320,29 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             output = output[output[str(plot_name)] == True]
             if len(output)>0:
                 output = pd.DataFrame(output[output[str(plot_names[i])] == True])
-                output['Altitude_difference'] = output['Altitude'].diff()    
+                output['Altitude_difference'] = output['Altitude'].diff()
                 output['Time_after_previous'] = output['DateTime'].diff().astype('timedelta64[s]')
                 output['Time_before_next'] = output['DateTime'].shift(-1).diff().astype('timedelta64[s]')
-                output['Groupby_nr'] = np.where((abs(output['Altitude_difference']) > 18),1,0).cumsum() 
+                output['Groupby_nr'] = np.where((abs(output['Altitude_difference']) > 18),1,0).cumsum()
                 #Loop through clustered_images per plot
                 for j in range(output['Groupby_nr'].max()+1):
-                    subset = pd.DataFrame(output[output['Groupby_nr'] == j])            
+                    subset = pd.DataFrame(output[output['Groupby_nr'] == j])
                     if len(subset) < 10:
                         output.drop(output[output['Groupby_nr'] == j].index, inplace = True)
                 if len(output) > geometry_transformed.area * 0.0001 * min_nr_of_images_per_ha:
-                    #rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))} 
+                    #rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))}
                     # use these three lines to do the replacement
                     #rep = dict((re.escape(k), v) for k, v in rep.items())
                     #pattern = re.compile("|".join(rep.keys()))
-                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#, os.path.basename(x)))                        
+                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#, os.path.basename(x)))
                     #create txt file for processing
+                    time.sleep(1)
                     timestr = time.strftime("%Y%m%d-%H%M%S")
                     #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                                                
-                    output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)                        
-                    with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
+                    output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
+                    with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
                         f.write(str(plot_name))
-                    #output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)                        
+                    #output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
         image_matches = total_upload.select_dtypes(np.bool)
         unknown_plot = pd.DataFrame({'Plot_known' : image_matches.any(axis=1, bool_only = True)})
         unknown_plot = unknown_plot[unknown_plot['Plot_known'] == False]
@@ -352,21 +353,21 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             # modify input folder to output folder
             #rep = dict((re.escape(k), v) for k, v in rep.items())
             #pattern = re.compile("|".join(rep.keys()))
-            #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+            #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
             unknown_plot[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
             with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
                 f.write(str(plot_name))
         for plot_name in plot_names:
             total_upload.loc[total_upload[str(plot_name)] == True, 'Plot'] = str(plot_name)
             total_upload = total_upload.drop(columns=[str(plot_name)])
-        total_upload['Altitude_difference'] = total_upload['Altitude'].diff()    
+        total_upload['Altitude_difference'] = total_upload['Altitude'].diff()
         total_upload['Time_after_previous'] = total_upload['DateTime'].diff().astype('timedelta64[s]')
         total_upload['Time_before_next'] = total_upload['DateTime'].shift(-1).diff().astype('timedelta64[s]')
-        total_upload['Groupby_nr'] = np.where((abs(total_upload['Altitude_difference']) > 18),1,0).cumsum() 
-        total_upload.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) +"_image_groups.csv")    
-        
+        total_upload['Groupby_nr'] = np.where((abs(total_upload['Altitude_difference']) > 18),1,0).cumsum()
+        total_upload.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) +"_image_groups.csv")
+
     """
-        #check for images 
+        #check for images
         #Loop through images per flight
         for j in range(images['Groupby_nr'].max()):
             flight = pd.DataFrame(images[images['Groupby_nr'] == j])
@@ -385,23 +386,23 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     #check again if the intersecting nr of images is enough for processing
                     if len(output) > min_nr_of_images:
                         #set output folder based on input folder, customer id and plot id and folder structure on drive
-                        rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_id))} 
+                        rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_id))}
                         # use these three lines to do the replacement
                         rep = dict((re.escape(k), v) for k, v in rep.items())
                         pattern = re.compile("|".join(rep.keys()))
-                        output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+                        output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
                         #create txt file for processing
                         timestr = time.strftime("%Y%m%d-%H%M%S")
-                        output.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_id)+ "_group"+str(j)+".txt", sep = ',', header = False, index = False)                        
+                        output.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_id)+ "_group"+str(j)+".txt", sep = ',', header = False, index = False)
                     else:
                         #if nr of images within plot is not enough for processing, the output column value is put back to False, as if the images do not intersect a plot
                         flight[str(plot_id)].loc[flight[str(plot_id)] == True] = False
                 #Get list of images that fall not within a single plot of the customer
                 img_check = flight.drop(['Image_names', 'Altitude', 'Coords', 'DateTime', 'Altitude_difference',
-                                         'Time_after_previous', 'Time_before_next', 'Groupby_nr', 'Input_folder'],axis = 1) 
-                #check for images that did not intersect with any plot            
-                z = img_check.any(axis = 'columns') 
-                unknown_plot = pd.merge(pd.DataFrame(z.loc[z == False]), flight, how = 'left', left_index = True, right_index = True)    
+                                         'Time_after_previous', 'Time_before_next', 'Groupby_nr', 'Input_folder'],axis = 1)
+                #check for images that did not intersect with any plot
+                z = img_check.any(axis = 'columns')
+                unknown_plot = pd.merge(pd.DataFrame(z.loc[z == False]), flight, how = 'left', left_index = True, right_index = True)
                 #check if the number of images is enough to process, assumption here is that images within a flight are related
                 if len(unknown_plot) > min_nr_of_images:
                     #if true, create a processing file with unknown plot and correct output folder
@@ -409,7 +410,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     # modify input folder to output folder
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
-                    unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+                    unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
                     unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_unknown_plot.txt', sep = ',', header = False, index = False)
                 else:
                     #if not, create a file to move/remove images from recording folder on drive
@@ -417,25 +418,25 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     # modify input folder to output folder
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
-                    unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
-                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_not_enough_images.txt', sep = ',', header = False, index = False)               
+                    unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
+                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_not_enough_images.txt', sep = ',', header = False, index = False)
             else:
                 #create a file to move images from recordings folder on drive
                 rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
                 # modify input folder to output folder
                 rep = dict((re.escape(k), v) for k, v in rep.items())
                 pattern = re.compile("|".join(rep.keys()))
-                flight['Output_folder'] = flight['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                        
+                flight['Output_folder'] = flight['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
                 flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_random_images.txt', sep = ',', header = False, index = False)
 """
-                
+
 def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process):
-    new_finished_uploads = getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process)    
+    new_finished_uploads = getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process)
     if new_finished_uploads is not None:
         files_to_process = CreateProcessingOrderUploads(new_finished_uploads)
         con, meta = connect(config_file_path, port)
         GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta)
-        
+
 try:
     processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process)
 except Exception:
@@ -443,4 +444,3 @@ except Exception:
     logging.info("Error encountered at the following time: " + str(timestr))
     logging.exception("No processing due to the following error:")
     logging.info("\n")
-     
