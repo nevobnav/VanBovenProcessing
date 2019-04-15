@@ -1,3 +1,6 @@
 [submodule "gdal2tilesp"]
 	path = gdal2tilesp
 	url = https://github.com/pramsey/gdal2tilesp.git
+[submodule "vanbovendatabse"]
+	path = vanbovendatabse
+	url = https://github.com/kmvermeer/vanbovendatabse.git
