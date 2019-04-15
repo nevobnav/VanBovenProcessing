@@ -1,6 +1,3 @@
-[submodule "vanbovendatabase"]
-	path = vanbovendatabase
-	url = https://github.com/kmvermeer/vanbovendatabse
 [submodule "gdal2tilesp"]
 	path = gdal2tilesp
 	url = https://github.com/pramsey/gdal2tilesp.git
