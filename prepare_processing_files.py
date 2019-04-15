@@ -58,7 +58,7 @@ root_path = r'E:\VanBovenDrive\VanBoven MT\Opnames'
 #for example: in the folder "E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
 steps_to_uploads = 6
 #the last number of days to process, standard only the last week is considered for new uploads
-nr_of_days_to_process = 200
+nr_of_days_to_process = 7
 #the maximum time in seconds allowed between images to be considered from the same flight
 max_time_diff = 130
 #minimum nr of images per ha needed to process a flight
@@ -338,7 +338,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     #create txt file for processing
                     time.sleep(1)
                     timestr = time.strftime("%Y%m%d-%H%M%S")
-                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))                                                
+                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
                     output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
                     with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
                         f.write(str(plot_name))
