@@ -60,7 +60,7 @@ steps_to_uploads = 6
 #the last number of days to process, standard only the last week is considered for new uploads
 nr_of_days_to_process = 7
 #the maximum time in seconds allowed between images to be considered from the same flight
-max_time_diff = 130
+max_time_diff = 1800
 #minimum nr of images per ha needed to process a flight
 min_nr_of_images_per_ha = 30
 #db connection info
@@ -325,23 +325,30 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 output['Time_before_next'] = output['DateTime'].shift(-1).diff().astype('timedelta64[s]')
                 output['Groupby_nr'] = np.where((abs(output['Altitude_difference']) > 18),1,0).cumsum()
                 #Loop through clustered_images per plot
+                multiple_outputs = []
                 for j in range(output['Groupby_nr'].max()+1):
                     subset = pd.DataFrame(output[output['Groupby_nr'] == j])
                     if len(subset) < 10:
                         output.drop(output[output['Groupby_nr'] == j].index, inplace = True)
+                    if (len(subset) > geometry_transformed.area * 0.0001 * min_nr_of_images_per_ha) and (subset['Time_before_next'].max() > max_time_diff):
+                        multiple_outputs.append(output[output['Groupby_nr'] <= j])
+                        output = output[output['Groupby_nr'] > j]
                 if len(output) > geometry_transformed.area * 0.0001 * min_nr_of_images_per_ha:
+                    multiple_outputs.append(output)
                     #rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\"+str(plot_name))}
                     # use these three lines to do the replacement
                     #rep = dict((re.escape(k), v) for k, v in rep.items())
                     #pattern = re.compile("|".join(rep.keys()))
                     #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#, os.path.basename(x)))
                     #create txt file for processing
-                    time.sleep(1)
-                    timestr = time.strftime("%Y%m%d-%H%M%S")
-                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                    output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
-                    with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
-                        f.write(str(plot_name))
+                if len(multiple_outputs) > 0:
+                    for output in multiple_outputs:
+                        time.sleep(2)
+                        timestr = time.strftime("%Y%m%d-%H%M%S")
+                        #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
+                        output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
+                        with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
+                            f.write(str(plot_name))
                     #output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
         image_matches = total_upload.select_dtypes(np.bool)
         unknown_plot = pd.DataFrame({'Plot_known' : image_matches.any(axis=1, bool_only = True)})

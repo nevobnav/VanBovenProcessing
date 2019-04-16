@@ -118,7 +118,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     processing_time = toc - tic
     logging.info("Image alignment took " + str(int(processing_time)) + " seconds" )
     logging.info("alignment took "+str(iter) + " iterations")
-    logging.info("A total of " + str(len(realign_list)) + " out of " + str(len(chunk.cameras)) + " images has been aligned")
+    logging.info("A total of " + str(len(chunk.cameras) - len(realign_list)) + " out of " + str(len(chunk.cameras)) + " images has been aligned")
 
     tic = time.clock()
     #optional incteratively increase camera accuracy
