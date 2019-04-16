@@ -228,14 +228,14 @@ processing_archive_path = r'E:\VanBovenDrive\VanBoven MT\Processing\Archive'
 processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
 temp_processing_folder = r'E:\Metashape'
 #execute:
-try:
-    #keep track of processing
-    nr_of_plots = 0
-    nr_of_images = 0
-    #iterate through the folder with processing txt files
-    for proces_file in os.listdir(process_path):
-        if proces_file.endswith('.txt'):
 
+#keep track of processing
+nr_of_plots = 0
+nr_of_images = 0
+#iterate through the folder with processing txt files
+for proces_file in os.listdir(process_path):
+    if proces_file.endswith('.txt'):
+        try:
             input_file = os.path.join(process_path, proces_file)
             with open(input_file) as image_file:
                 temp = image_file.read().splitlines()
@@ -291,11 +291,11 @@ try:
                 logging.info("Error in processing " + str(os.path.dirname(ortho_out)))
                 logging.exception("Metashape processing encountered the following problem:")
                 logging.info("\n")
-except Exception:
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    logging.info("Error encountered at the following time: " + str(timestr))
-    logging.exception("something went wrong reading processing file:")
-    logging.info("\n")
+        except Exception:
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            logging.info("Error encountered at the following time: " + str(timestr))
+            logging.exception("something went wrong reading processing file:")
+            logging.info("\n")
 
 """
 #after metashape processing is finished move images to archive

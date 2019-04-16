@@ -355,8 +355,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             #pattern = re.compile("|".join(rep.keys()))
             #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
             unknown_plot[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
-            with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
-                f.write(str(plot_name))
+            with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_unknown_plot.txt', 'a') as f:
+                f.write('unknown_plot')
         for plot_name in plot_names:
             total_upload.loc[total_upload[str(plot_name)] == True, 'Plot'] = str(plot_name)
             total_upload = total_upload.drop(columns=[str(plot_name)])
