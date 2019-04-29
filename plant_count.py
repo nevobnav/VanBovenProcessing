@@ -42,8 +42,10 @@ sample_set = np.array([[[90,127,74],[106,144,86]],[[244,252,221],[65,82,54]]]).a
 sample_lab = cv2.cvtColor(sample_set, cv2.COLOR_BGR2LAB)
 
 #maak initiële waarden voor clustering
-shadow_lab = cv2.cvtColor(np.array([[[14,18,17]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-light_lab = cv2.cvtColor(np.array([[[206,198,190]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
+shadow_lab = cv2.cvtColor(np.array([[[14,18,17]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+#shadow_lab = cv2.cvtColor(np.array([[[10,10,10]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
+light_lab = cv2.cvtColor(np.array([[[206,198,190]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+#light_lab = cv2.cvtColor(np.array([[[220,220,220]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 green_lab = cv2.cvtColor(np.array([[[126.25,151.25,108.75]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 
 #convert to np array
@@ -70,9 +72,14 @@ src = gdal.Open(r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalli
 
 x_block_size = 512
 y_block_size = 512
+
+#list to create subsest of blocks
+it = list(range(0,5000, 10))
+
 # Function to read the raster as arrays for the chosen block size.
 def read_raster(x_block_size, y_block_size):
     tic = time.time()
+    i = 0
     raster = r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 2\20190419\Orthomosaic/c01_verdonk-Rijweg stalling 2-20190419_clipped.tif"
     #srcArray = gdalnumeric.LoadFile(raster)
     ds = gdal.Open(raster)
@@ -90,7 +97,8 @@ def read_raster(x_block_size, y_block_size):
             rows = ysize - y
         for x in range(0, xsize, x_block_size):
             blocks += 1
-            if blocks < 5000:
+            #if statement for subset
+            if blocks in it:
                 if x + x_block_size < xsize:
                     cols = x_block_size
                 else:
@@ -102,15 +110,15 @@ def read_raster(x_block_size, y_block_size):
                 img[:,:,0] = b
                 img[:,:,1] = g
                 img[:,:,2] = r
-
+                #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\blocks\rijwegstalling2_blocks_'+str(x)+'-'+str(y)+'.jpg',img)     
                 #array = ds.ReadAsArray(x, y, cols, rows)
                 #array = array[0:3,:,:]
                 if img.mean() > 0:
                     #array = array.reshape(array.shape[1], array.shape[2], array.shape[0])
                     #perform filtering on image to make plants and backgrond more uniform
-                    img = cv2.medianBlur(img, ksize = 5)
+                    img2 = cv2.medianBlur(img, ksize = 5)
                     #convert to CieLAB colorspace
-                    img_lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+                    img_lab = cv2.cvtColor(img2, cv2.COLOR_BGR2LAB)
                     a = np.array(img_lab[:,:,1])
                     b2 = np.array(img_lab[:,:,2])
                     #create input data array
@@ -135,13 +143,90 @@ def read_raster(x_block_size, y_block_size):
                     #closing = cv2.morphologyEx(closing, cv2.MORPH_CLOSE, kernel)
                     #closing = cv2.morphologyEx(closing, cv2.MORPH_CLOSE, kernel)
                     #write blocks on original sized image
+                    contours, hierarchy = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                    #template = np.zeros(img2.shape).astype(np.uint8)
+                    for cnt in contours:
+                        i+=1
+                        ar = cv2.contourArea(cnt)
+                        if (ar > 9) & (ar < 4001):    
+                            M = cv2.moments(cnt)
+                            try:
+                                cx = int(M['m10']/M['m00'])
+                                cy = int(M['m01']/M['m00'])
+                            except:
+                                print('0')
+                            bbox = cv2.boundingRect(cnt)
+                            #x,y,w,h = cv2.boundingRect(cnt)
+                            output = img[bbox[1]-5: bbox[1]+bbox[3]+5, bbox[0]-5:bbox[0]+bbox[2]+5]
+                            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Training_data/image_'+str(i)+'.jpg', output)
+                            #cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+                            cv2.drawMarker(img, (cx,cy), (0,0,255), markerType = cv2.MARKER_STAR, markerSize = 5, thickness = 1)
+                            cv2.drawContours(output, cnt,-1, (255, 255, 255),-1)
+                    #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\blocks\rijwegstalling2_blocks_'+str(i)+'.jpg',img)     
+                   # nr_of_img = create_training_data(img, closing, i)
                     template[y:y+rows, x:x+cols] = closing
                 
     cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijwegstalling2_blocks_test.jpg',template)     
     toc = time.time()
-    print("processing took "+ str(tic - toc)+" seconds")
+    print("processing took "+ str(toc - tic)+" seconds")
 
-           
+    #read bands
+    b = np.array(ds.GetRasterBand(1).ReadAsArray()).astype(np.uint(8))
+    g = np.array(ds.GetRasterBand(2).ReadAsArray()).astype(np.uint(8))
+    r = np.array(ds.GetRasterBand(3).ReadAsArray()).astype(np.uint(8))
+    
+    #create img
+    img = np.zeros([b.shape[0],b.shape[1],3], np.uint8)
+    img[:,:,0] = b
+    img[:,:,1] = g
+    img[:,:,2] = r
+
+    contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+    i = 0
+    #template = np.zeros(img2.shape).astype(np.uint8)
+    for cnt in contours:
+        #get area of each contour
+        ar = cv2.contourArea(cnt)
+        M = cv2.moments(cnt)
+        try:
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+        except:
+            print('0')
+        if (ar > 9) & (ar < 401):     
+            i += 1
+            cv2.drawMarker(img, (cx,cy), (0,0,255), markerType = cv2.MARKER_STAR, markerSize = 9, thickness = 2)
+            cv2.drawContours(img, cnt,-1, (255, 255, 255),-1)
+
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijweg_plants_subset_test.jpg',img)
+
+def create_training_data(img, closing, i):
+    contours, hierarchy = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    #template = np.zeros(img2.shape).astype(np.uint8)
+    for cnt in contours:
+        i+=1
+        ar = cv2.contourArea(cnt)
+        if (ar > 9) & (ar < 4001):    
+            M = cv2.moments(cnt)
+            try:
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
+            except:
+                print('0')
+            bbox = cv2.boundingRect(cnt)
+            x,y,w,h = cv2.boundingRect(cnt)
+            output = img[bbox[1]-5: bbox[1]+bbox[3]+5, bbox[0]-5:bbox[0]+bbox[2]+5]
+            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Training_data/image_'+str(i)+'.jpg', output)
+            cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
+            cv2.drawMarker(img, (cx,cy), (0,0,255), markerType = cv2.MARKER_STAR, markerSize = 5, thickness = 1)
+            cv2.drawContours(output, cnt,-1, (255, 255, 255),-1)
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\blocks\rijwegstalling2_blocks_'+str(i)+'.jpg',img)     
+    return i
+    
+    
+
+"""        
     gdalnumeric.SaveArray(srcArray, r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijwegstalling2_blocks_test.jpg', format="JPEG")            
 
             del array
@@ -272,5 +357,5 @@ img3 = (img3/img3.max())*255
 img3[img3 < 0] = 0
 
 img3 = img3.astype(np.uint8)
-
-cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijweg_plants_blocks_test.jpg',img)
+"""
+cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijweg_template.jpg',template)
