@@ -50,7 +50,7 @@ def getAltitude(chunk):
     Metashape.app.update()
     print("Script finished")
 
-def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out):
+def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality):
     #if folder.endswith('Perceel1'): ook een optie afhankelijk van naamgeving mappen
     #path = folder
     if not os.path.exists(metashape_processing_folder):
@@ -142,7 +142,11 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     #every step lower dan UltraQuality downscales the images by a factor 4 (2x per side)
     # - Depth filtering mode in [AggressiveFiltering, ModerateFiltering, MildFiltering, NoFiltering]
     tic = time.clock()
-    chunk.buildDepthMaps(quality=Metashape.MediumQuality, filter=Metashape.MildFiltering)
+    
+    if quality == "Medium":
+        chunk.buildDepthMaps(quality=Metashape.MediumQuality, filter=Metashape.MildFiltering)
+    if quality == "Low":
+        chunk.buildDepthMaps(quality=Metashape.LowQuality, filter=Metashape.MildFiltering)
     chunk.buildDenseCloud(max_neighbors = 100, point_colors = False)
     toc = time.clock()
     processing_time = toc - tic
@@ -207,13 +211,21 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
     tic = time.clock()
+    #check if output allready exists and rename if so
+    name_it = 1
+    while os.path.isfile(str(ortho_out)) == True:
+        ortho_out = ortho_out[:-4] + '('+str(name_it)+').tif'
+        name_it += 1
     chunk.exportOrthomosaic(path = ortho_out, tiff_big = True) #, jpeg_quality(75)
+    #finish and write to logfile
     toc = time.clock()
     processing_time = toc-tic
     logging.info("Ortho export took "+str(int(processing_time))+" seconds")
     doc.clear()
 
 #Start of execution
+#get quality parameter from bat script
+quality = sys.argv[1]
 
 #initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -255,7 +267,7 @@ for proces_file in os.listdir(process_path):
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out)
+                MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
