@@ -13,8 +13,8 @@ import cv2
 coords = []
 #straal vanaf het midden tot uiterste rand van object
 plant_straal = 20
-#categorie, kies uit broccoli, achtergrond, gras, doek etc.
-cat = 'achtergrond'
+#categorie, kies uit Broccoli, Background, Grass, Cover etc.
+cat = 'Background'
 
 
 if __name__ == "__main__":
@@ -54,4 +54,4 @@ img = cv2.imread(str(File), -1)
 
 for x, y in coords:
     output = img[y-plant_straal: y+plant_straal,x-plant_straal:x+plant_straal]
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\click_test/' +str(cat) +'/click_test'+str(x)+str(y)+'.jpg', output)
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Training_data/' +str(cat) +'/click_' + str(File[-22:-4]) + str(x)+str(y)+'.jpg', output)
