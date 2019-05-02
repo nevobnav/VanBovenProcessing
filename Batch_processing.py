@@ -29,6 +29,8 @@ import os,re,sys
 import time
 import logging
 import shutil
+import pandas as pd
+from append_df_to_excel_file import *
 
 def move_files_after_processing(photoList, output_folder):
     for photo in photoList:
@@ -222,6 +224,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     processing_time = toc-tic
     logging.info("Ortho export took "+str(int(processing_time))+" seconds")
     doc.clear()
+    return timestr_save
 
 #Start of execution
 #get quality parameter from bat script
@@ -267,7 +270,7 @@ for proces_file in os.listdir(process_path):
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality)
+                timestr_save = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
@@ -279,7 +282,12 @@ for proces_file in os.listdir(process_path):
                 nr_of_images += len(photoList)
                 with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
                     text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
-
+                #create df with info for processinglog in ortho inbox
+                df = pd.DataFrame([[day_of_recording,timestr[:8], tic, customer_id, plot_id, nr_of_images, (str(day_of_recording) + "_" + str(timestr_save)+'.psx')]], 
+                    columns = ['Flight date',	'Processing date',	'Start time',	'Customer Name',	'Plot Name',	'No of photos',	'Agisoft filename'])
+                #append info to processinglog.xlsx
+                append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
+                
                 """
                 This part of code is redundant now
                 try:

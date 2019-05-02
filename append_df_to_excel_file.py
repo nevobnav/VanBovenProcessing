@@ -8,12 +8,8 @@ Created on Thu May  2 13:22:53 2019
 import pandas as pd
 import os
 
-filepath = r'C:\Users\ericv\Desktop'
-filename = 'Processinglog.xlsx'
-
-with pd.ExcelWriter(os.path.join(filepath, filename), engine = 'openpyxl', mode='a', sheet = 'Sheet1') as writer:
-    test.to_excel(header = False, index = False)
-
+excel_filepath = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
+excel_filename = 'Processinglog.xlsx'
 
 def append_df_to_excel(filename, df, sheet_name='Sheet1', startrow=None,
                        truncate_sheet=False, header = False, index = False,

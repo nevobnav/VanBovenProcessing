@@ -207,6 +207,21 @@ def read_raster(x_block_size, y_block_size, model):
     i = 0
     #template = np.zeros(img2.shape).astype(np.uint8)
     for cnt in contours:
+        
+        #vectorized
+        
+        ar = list(map(lambda x: cv2.contourArea(x), contours))
+        M = list(map(lambda x: cv2.moments(x), contours))
+        
+        cx = list(map(lambda x: int(x['m10']/x['m00']), M))
+        cy = list(map(lambda x: int(x['m01']/x['m00']), M))
+                
+        subset_ar = list(map(lambda x: x > 81 and x < 500, ar))    
+        
+        
+        
+        np.nonzero(ar)
+        test = ar.nonzero()
         #get area of each contour
         ar = cv2.contourArea(cnt)
         M = cv2.moments(cnt)
@@ -214,20 +229,21 @@ def read_raster(x_block_size, y_block_size, model):
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
         except:
-            print('0')
-        if (ar > 9) & (ar < 401):   
+            continue
+            #print('0')
+        if (ar > 81) & (ar < 401):   
             bbox = cv2.boundingRect(cnt)
             x,y,w,h = cv2.boundingRect(cnt)
             output = img[bbox[1]-5: bbox[1]+bbox[3]+5, bbox[0]-5:bbox[0]+bbox[2]+5]
             if output.shape[0] * output.shape[1] > 0:
                 output_features = Random_Forest_Classifier.get_image_features(output, scaler)                                
                 prediction = str(model.predict(output_features)[0])
-                print(prediction)
+                #print(prediction)
                 if prediction == 'Broccoli':                             
                     #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Training_data/image_'+str(i)+'.jpg', output)
-                    cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,255),2)
-                    i += 1
-                    #cv2.drawMarker(img, (cx,cy), (0,0,255), markerType = cv2.MARKER_STAR, markerSize = 5, thickness = 1)
+                    #cv2.rectangle(img,(x,y),(x+w,y+h),(0,0,255),2)
+                    #i += 1
+                    cv2.drawMarker(img2, (cx,cy), (255,255,255), markerType = cv2.MARKER_STAR, markerSize = 5, thickness = 1)
                     #cv2.drawContours(img, cnt,-1, (255, 255, 255),-1)
                 if prediction == 'Grass':
                     cv2.drawMarker(img, (cx,cy), (0,0,255), cv2.MARKER_STAR, markerSize = 5, thickness = 2)                  
@@ -239,7 +255,7 @@ def read_raster(x_block_size, y_block_size, model):
             #cv2.drawMarker(img, (cx,cy), (0,0,255), markerType = cv2.MARKER_STAR, markerSize = 9, thickness = 2)
             #cv2.drawContours(img, cnt,-1, (255, 255, 255),-1)
 
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\Broccoli_classification.jpg',img)
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\Broccoli_classification2.jpg',img2)
 
 def create_training_data(img, closing, i):
     contours, hierarchy = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
