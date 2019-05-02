@@ -11,10 +11,12 @@ import os
 filepath = r'C:\Users\ericv\Desktop'
 filename = 'Processinglog.xlsx'
 
-df = pd.read_excel(os.path.join(filepath, filename), skiprows=1)
+with pd.ExcelWriter(os.path.join(filepath, filename), engine = 'openpyxl', mode='a', sheet = 'Sheet1') as writer:
+    test.to_excel(header = False, index = False)
+
 
 def append_df_to_excel(filename, df, sheet_name='Sheet1', startrow=None,
-                       truncate_sheet=False, 
+                       truncate_sheet=False, header = False, index = False,
                        **to_excel_kwargs):
     """
     Append a DataFrame [df] to existing Excel file [filename]
@@ -80,7 +82,7 @@ def append_df_to_excel(filename, df, sheet_name='Sheet1', startrow=None,
         startrow = 0
 
     # write out the new sheet
-    df.to_excel(writer, sheet_name, startrow=startrow, **to_excel_kwargs)
+    df.to_excel(writer, sheet_name, startrow=startrow, header = False, index = False, **to_excel_kwargs)
 
     # save the workbook
     writer.save()
