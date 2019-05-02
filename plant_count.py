@@ -15,6 +15,8 @@ Created on Thu Apr 25 14:46:57 2019
 import os
 os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing')
 
+import pandas as pd
+
 import time
 import cv2
 import sklearn
@@ -86,9 +88,9 @@ x_block_size = 512
 y_block_size = 512
 
 #list to create subsest of blocks
-it = list(range(0,5000, 1))
+it = list(range(0,5000, 50))
 #skip = True if you do not want to process each block but you want to process the entire image
-skip = True
+skip = False
 # Function to read the raster as arrays for the chosen block size.
 def read_raster(x_block_size, y_block_size, model):
     tic = time.time()
@@ -201,11 +203,39 @@ def read_raster(x_block_size, y_block_size, model):
     img[:,:,0] = b
     img[:,:,1] = g
     img[:,:,2] = r
-
+    
+    #temp voor development     
+    template = cv2.imread(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/rijweg_closing.jpg')
+    template = template[:,:,0]
+    img = cv2.imread(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/rijweg_plants_outline.jpg')
+    
+    
+    
     contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
 
     i = 0
     #template = np.zeros(img2.shape).astype(np.uint8)
+    df = pd.DataFrame({'contours': contours})
+    df['area'] = df.contours.apply(lambda x:cv2.contourArea(x)) 
+    df = df[(df['area'] > 81) & (df['area'] < 500)]
+    df['moment'] = df.contours.apply(lambda x:cv2.moments(x))
+    df['cx'] = df.moment.apply(lambda x:int(x['m10']/x['m00']))
+    df['cy'] = df.moment.apply(lambda x:int(x['m01']/x['m00']))
+    df['bbox'] = df.contours.apply(lambda x:cv2.boundingRect(x))
+    df['output'] = df.bbox.apply(lambda x:img[x[1]-5: x[1]+x[3]+5, x[0]-5:x[0]+x[2]+5])
+    df = df[df.output.apply(lambda x:x.shape[0]*x.shape[1]) > 0]
+
+    output_features = df.output.apply(lambda x: Random_Forest_Classifier.get_image_features(x, scaler))
+    prediction = output_features.apply(lambda x: str(model.predict(output_features)[0]))
+    
+    
+    
+    output_features = Random_Forest_Classifier.get_image_features(output, scaler)                                
+    prediction = str(model.predict(output_features)[0])
+        
+    
+
     for cnt in contours:
         
         #vectorized
