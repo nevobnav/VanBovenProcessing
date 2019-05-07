@@ -84,13 +84,13 @@ model, scaler = Random_Forest_Classifier.get_trained_model(train_data_path)
 #read image
 src = gdal.Open(r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 2\20190419\Orthomosaic/c01_verdonk-Rijweg stalling 2-20190419_clipped.tif")
 
-x_block_size = 512
-y_block_size = 512
+x_block_size = 1024
+y_block_size = 1024
 
 #list to create subsest of blocks
-it = list(range(0,5000, 50))
+it = list(range(0,5000, 1))
 #skip = True if you do not want to process each block but you want to process the entire image
-skip = False
+skip = True
 # Function to read the raster as arrays for the chosen block size.
 def read_raster(x_block_size, y_block_size, model):
     tic = time.time()
@@ -188,8 +188,12 @@ def read_raster(x_block_size, y_block_size, model):
                         cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\classified_blocks\rijwegstalling2_blocks_'+str(i)+'.jpg',img)     
                     # nr_of_img = create_training_data(img, closing, i)
                     template[y:y+rows, x:x+cols] = closing
+                    print('processing of block ' + str(blocks) + ' finished')
+    toc = time.time()
+    print("processing took "+ str(toc - tic)+" seconds")
+
                 
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijwegstalling1_blocks_test.jpg',template)     
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijwegstalling2_closed.jpg',template)     
     toc = time.time()
     print("processing took "+ str(toc - tic)+" seconds")
 
@@ -213,7 +217,7 @@ def read_raster(x_block_size, y_block_size, model):
     
     contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     
-
+    tic = time.time()
     i = 0
     #template = np.zeros(img2.shape).astype(np.uint8)
     df = pd.DataFrame({'contours': contours})
@@ -228,7 +232,9 @@ def read_raster(x_block_size, y_block_size, model):
 
     output_features = df.output.apply(lambda x: Random_Forest_Classifier.get_image_features(x, scaler))
     prediction = output_features.apply(lambda x: str(model.predict(output_features)[0]))
-    
+    toc = time.time()
+    print("processing took "+ str(toc - tic)+" seconds")
+
     
     
     output_features = Random_Forest_Classifier.get_image_features(output, scaler)                                
