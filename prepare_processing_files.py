@@ -58,7 +58,7 @@ root_path = r'E:\VanBovenDrive\VanBoven MT\Opnames'
 #for example: in the folder "E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
 steps_to_uploads = 6
 #the last number of days to process, standard only the last week is considered for new uploads
-nr_of_days_to_process = 7
+nr_of_days_to_process = 14
 #the maximum time in seconds allowed between images to be considered from the same flight
 max_time_diff = 1800
 #minimum nr of images per ha needed to process a flight

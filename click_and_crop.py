@@ -10,11 +10,13 @@ from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import cv2
 
+
+
 coords = []
 #straal vanaf het midden tot uiterste rand van object
 plant_straal = 20
 #categorie, kies uit Broccoli, Background, Grass, Cover etc.
-cat = 'Background'
+cat = 'Grass'
 
 
 if __name__ == "__main__":
