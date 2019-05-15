@@ -51,7 +51,13 @@ def getAltitude(chunk):
     chunk.updateTransform()
     Metashape.app.update()
     print("Script finished")
-
+    
+def get_first_img_time(chunk):
+    camera = chunk.cameras[0]
+    cam_datetime = camera.photo.meta['Exif/DateTime']
+    img_time = cam_datetime[11:16]
+    return img_time
+    
 def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality):
     #if folder.endswith('Perceel1'): ook een optie afhankelijk van naamgeving mappen
     #path = folder
@@ -209,11 +215,15 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
 
     #if not os.path.exists(temp_processing_folder+"\\Orthomosaic\\"):
         #os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
+    
+    #get time of first image
+    img_time = get_first_img_time(chunk)
 
     timestr = time.strftime("%H%M%S")
     #zorg voor mooie naamgeving + output
     tic = time.clock()
     #check if output allready exists and rename if so
+    ortho_out = ortho_out[:-4]+str(img_time)+'.tif'
     name_it = 1
     while os.path.isfile(str(ortho_out)) == True:
         ortho_out = ortho_out[:-4] + '('+str(name_it)+').tif'
