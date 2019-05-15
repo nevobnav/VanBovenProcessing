@@ -23,17 +23,22 @@ def find_old_psx_files(metashape_path, days_to_store):
             files = os.listdir(i)
             for file in files:
                 if file.endswith('.psx'):
-                    file_created_str = file[:8]
-                    file_created_date = datetime.date(int(file_created_str[:4]),int(file_created_str[4:6]), int(file_created_str[6:]))
-                    if file_created_date < threshold_date:
-                        psx_file = os.path.join(i, file)
-                        Metashape.app.console.clear()
-                        doc = Metashape.app.document
-                        doc.open(psx_file)
-                        pszfile = psx_file[:-4]+'.psz'
-                        doc.save( pszfile )
-                        os.remove(psx_file)
-                        file_dir = psx_file[:-4]+'.files'
-                        shutil.rmtree(file_dir)
-                        
+                    try:
+                        file_created_str = file[:8]
+                        file_created_date = datetime.date(int(file_created_str[:4]),int(file_created_str[4:6]), int(file_created_str[6:]))
+                        if file_created_date < threshold_date:
+                            psx_file = os.path.join(i, file)
+                            Metashape.app.console.clear()
+                            doc = Metashape.app.document
+                            doc.open(psx_file)
+                            pszfile = psx_file[:-4]+'.psz'
+                            doc.save( pszfile )
+                            os.remove(psx_file)
+                            file_dir = psx_file[:-4]+'.files'
+                            shutil.rmtree(file_dir)
+                    except:
+                        print('error encountered while archiving')
+                            ''
+                   
+
 find_old_psx_files(metashape_path, days_to_store)

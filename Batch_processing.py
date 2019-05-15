@@ -55,7 +55,7 @@ def getAltitude(chunk):
 def get_first_img_time(chunk):
     camera = chunk.cameras[0]
     cam_datetime = camera.photo.meta['Exif/DateTime']
-    img_time = cam_datetime[11:16]
+    img_time = cam_datetime[11:16].replace(':','')    
     return img_time
     
 def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality):

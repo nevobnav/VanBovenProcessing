@@ -101,10 +101,6 @@ inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #folder where all o
 ortho_archive_destination = r'E:\VanBovenDrive\VanBoven MT\Archive' #Folder where orthos are archived (gdrive)
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
 
-#DEV stuff##
-inbox = '/Users/kazv/Desktop/inbox'
-ortho_archive_destination = '/Users/kazv/Desktop/ready'
-pem_path = '/Users/kazv/.ssh/VanBovenAdmin.pem'
 
 with open('postgis_config.json') as config_file:
     config = json.load(config_file)
@@ -150,7 +146,6 @@ for file in files:
     this_datetime = this_datetime.split('.')[0]
     this_date = this_datetime[0:-4]
     this_time = this_datetime[-4::]
-
     dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file}
     ('    {}: {}\n'.format(str(tif_count),file))
     orthos.append(dict)
@@ -301,7 +296,7 @@ for ortho in ortho_que:
     format(filename,round((start_ortho_time-end_ortho_time)/60)))
 
     scan_time = datetime.datetime.strptime(flight_time, '%H%M').time()
-    insert_new_scan(flight_date,scan_time plot_name, meta, con)
+    insert_new_scan(flight_date,scan_time, plot_name, meta, con)
     logging.info("Added scan {}-{} to plot {}".format(flight_date,flight_time,plot_name))
 
 con.connect().close()
