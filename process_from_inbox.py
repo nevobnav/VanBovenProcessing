@@ -96,12 +96,15 @@ def mkpath(sftp,path):
         sftp.mkdir(path)
 
 
-
 ## CONFIG SECTION ##
 inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #folder where all orthos are stored
 ortho_archive_destination = r'E:\VanBovenDrive\VanBoven MT\Archive' #Folder where orthos are archived (gdrive)
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
 
+#DEV stuff##
+inbox = '/Users/kazv/Desktop/inbox'
+ortho_archive_destination = '/Users/kazv/Desktop/ready'
+pem_path = '/Users/kazv/.ssh/VanBovenAdmin.pem'
 
 with open('postgis_config.json') as config_file:
     config = json.load(config_file)
@@ -143,13 +146,16 @@ logging.info('Total of {} files to process: \n'.format(len(files)))
 for file in files:
     #name convention: customer-plot-date.tif
     tif_count +=1
-    this_customer_name,this_plot_name,this_date = file.split('-')
-    this_date = this_date.split('.')[0]
-    dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "date":this_date, "filename":file}
+    this_customer_name,this_plot_name,this_datetime = file.split('-')
+    this_datetime = this_datetime.split('.')[0]
+    this_date = this_datetime[0:-4]
+    this_time = this_datetime[-4::]
+
+    dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file}
     ('    {}: {}\n'.format(str(tif_count),file))
     orthos.append(dict)
 
-ortho_que = sorted(orthos, key=lambda k: k['date'])
+ortho_que = sorted(orthos, key=lambda k: k['flight_date'])
 
 ## Tiling process ##
 
@@ -165,12 +171,13 @@ for ortho in ortho_que:
     #Read dict
     customer_name = ortho['customer_name']
     plot_name = ortho['plot_name']
-    date = ortho['date']
+    flight_date = ortho['flight_date']
+    flight_time = ortho['flight_time']
     filename = ortho['filename']
     logging.info('Starting processing of {}\n'.format(filename))
 
     #Check for possible duplicate work:
-    ortho_archive_target = os.path.join(ortho_archive_destination,customer_name,plot_name,date,'Orthomosaic')
+    ortho_archive_target = os.path.join(ortho_archive_destination,customer_name,plot_name,flight_date,flight_time,'Orthomosaic')
     if os.path.isfile(ortho_archive_target): #This needs to be tested for the 'break'
         #File already exists, quiting early and logging duplicate
         logging.info('    Ortho is already present in archive. Exited after {} seconds\n'\
@@ -198,7 +205,7 @@ for ortho in ortho_que:
     else:
         newtile = True
     os.mkdir(output_folder)
-    batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
+    # batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
     batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none -o tms'
     #Would be great if we can use the direct python funciton. This requires either building an options args element, or manually fixing gdal2tiles.py
     #argv= gdal.GeneralCmdLineProcessor(['"'+str(input_file)+'"','"'+str(output_folder)+'"','--processes' ,'14' ,'-z', '16-23', '-w' ,'none'])
@@ -257,7 +264,7 @@ for ortho in ortho_que:
 
 
     #unzip file to the right dir and remove archive
-    remote_unzip_location = '/home/ubuntu/media/data/' + customer_name + '/' + plot_name +'/' +  date
+    remote_unzip_location = '/home/ubuntu/media/data/' + customer_name + '/' + plot_name +'/' +  flight_date + flight_time
     #Specify bash ssh commands
     command_unzip = 'unzip ' + "'"+ full_remote_zip_path + "'" + ' -d ' + "'" + remote_unzip_location + "'"
     command_removezip = 'rm ' + "'"+ full_remote_zip_path + "'"
@@ -289,15 +296,41 @@ for ortho in ortho_que:
     shutil.move(input_file,os.path.join(ortho_archive_target,filename_clipped))
     shutil.move(os.path.join(inbox,filename),os.path.join(ortho_archive_target,filename))
 
-
     end_ortho_time = time.time()
     logging.info('    Finished processing {} in {} minutes\n \n'.\
     format(filename,round((start_ortho_time-end_ortho_time)/60)))
 
-    insert_new_scan(date, plot_name, meta, con)
-    logging.info("Added scan {} to plot {}".format(date,plot_name))
-
+    scan_time = datetime.datetime.strptime(flight_time, '%H%M').time()
+    insert_new_scan(flight_date,scan_time plot_name, meta, con)
+    logging.info("Added scan {}-{} to plot {}".format(flight_date,flight_time,plot_name))
 
 con.connect().close()
 print('Reached end of script')
 logging.info('Reached end of script')
+
+
+
+
+
+#Get all folders in dir:
+# import os
+# folder = os.getcwd()
+# def get_dirlist(rootdir):
+#     dirlist = []
+#     slashes = folder.count('/')
+#     with os.scandir(rootdir) as rit:
+#         for entry in rit:
+#             if entry.path.count('/') <= (slashes +2 ) and not entry.name.startswith('.') and entry.is_dir():
+#                 dirlist.append(entry.path)
+#                 dirlist += get_dirlist(entry.path)
+#     dirlist.sort() # Optional, in case you want sorted directory names
+#     return dirlist
+# dirlist = get_dirlist(folder)
+# for sf in dirlist:
+#     if os.path.basename(sf)[0]!= '.' and os.path.basename(sf)[0:4] == '2019' :
+#         path = os.path.split(sf)[0]
+#         fname = os.path.split(sf)[1]
+#         new_fname = fname+'0200'
+#         new_sf = path + '/' + new_fname
+#         bashcommand = "mv '{}' '{}'".format(sf,new_sf)
+#         os.system(bashcommand)
