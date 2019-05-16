@@ -23,14 +23,14 @@ x_block_size = 800
 y_block_size = 800
 
 #list to create subsest of blocks
-it = list(range(0,7500, 15))
+it = list(range(0,7500, 5))
 #skip = True if you do not want to process each block but you want to process the entire image
 skip = True
 # Function to read the raster as arrays for the chosen block size.
 #def process_raster2template(x_block_size, y_block_size, model, skip, it):
 tic = time.time()
 i = 0
-raster = r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 1\20190416\Orthomosaic/c01_verdonk-Rijweg stalling 1-20190416_clipped.tif"
+raster = r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 2\20190419\Orthomosaic/c01_verdonk-Rijweg stalling 2-20190419_clipped.tif"
 #srcArray = gdalnumeric.LoadFile(raster)
 ds = gdal.Open(raster)
 band = ds.GetRasterBand(1)
@@ -64,5 +64,5 @@ for y in range(0, ysize, y_block_size):
             #array = ds.ReadAsArray(x, y, cols, rows)
             #array = array[0:3,:,:]
             if img.mean() > 0:
-                cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Rijweg-stalling1_'+str(blocks)+'.jpg',img)
+                cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/Rijweg-stalling2_'+str(blocks)+'.jpg',img)
                 

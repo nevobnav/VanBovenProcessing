@@ -14,9 +14,9 @@ import cv2
 
 coords = []
 #straal vanaf het midden tot uiterste rand van object
-plant_straal = 20
+plant_straal = 15
 #categorie, kies uit Broccoli, Background, Grass, Cover etc.
-cat = 'Grass'
+cat = 'Background'
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ Created on Thu Apr 25 14:46:57 2019
 
 @author: ericv
 """
+from tensorflow.keras import models
 
 import os
 os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing')
@@ -39,10 +40,10 @@ import gdal
 from osgeo import gdalnumeric
 from osgeo import ogr, osr
 from fiona.crs import from_epsg
-import geopandas
+import fiona
+import geopandas as gpd
 import rasterio 
 from rasterio.features import shapes
-from shapely import shape
 from shapely.geometry import mapping, Polygon, shape, Point
 
 from functools import partial
@@ -56,7 +57,13 @@ import pyproj
 #band1, band2, band3 = [65,82,54]
 
 shp_dir = r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1'
-shp_name = 'AB_Vakwerk_points.shp'
+shp_name = 'test_points.shp'
+
+def points_in_array(x):
+    for point in x:
+        point_list = point[0]
+        return cx, cy
+
 
 def transform_geometry(geometry):
     project = partial(
@@ -66,18 +73,49 @@ def transform_geometry(geometry):
     geometry = transform(project, geometry)  # apply projection
     return geometry
 
-def write_plants2shp(img_path, plant_contours, shp_dir, shp_name):    
-    #create mask
-    mask = ma.masked_values(plant_contours, 0)    
-    
+def write_plants2shp(img_path, df, shp_dir, shp_name):
     #get transform
     src = rasterio.open(img_path)
+    #convert centroids to coords and contours to shape in lat, lon
+    df['coords'] = df.centroid.apply(lambda x:rasterio.transform.xy(transform = src.transform, rows = x[0], cols = x[1], offset='ul'))
+    df['geom'] = df.contours.apply(lambda x:rasterio.transform.xy(transform = src.transform, rows = list(x[:,0,1]), cols = list(x[:,0,0]), offset='ul'))
+    #convert df to gdf
+    #for polygon, first reformat into lists of coordinate pairs
+    shape_list = []
+    for geom in df.geom:
+        x_list = geom[0]
+        y_list = geom[1]
+        coords_list = []
+        for i in range(len(x_list)):
+            x = x_list[i]
+            y = y_list[i]
+            coords_list.append([x, y])
+        shape_list.append(coords_list)
+    df['geom2'] = shape_list
+
+    #create points
+    gdf_point = gpd.GeoDataFrame(df, geometry = [Point(x, y) for x, y in df.coords], crs = {'init': 'epsg:4326'})
+    gdf_point = gdf_point.drop(['contours', 'moment', 'cx', 'cy', 'bbox', 'output', 'input',
+       'centroid', 'coords', 'geom', 'geom2'], axis=1)    
+    #create polygons
+    gdf_poly = gpd.GeoDataFrame(df, geometry = [Polygon(shape) for shape in df.geom2], crs = {'init': 'epsg:4326'}) 
+    gdf_poly = gdf_poly.drop(['contours', 'moment', 'cx', 'cy', 'bbox', 'output', 'input',
+       'centroid', 'coords', 'geom', 'geom2'], axis=1)
+    
+    gdf_point.to_file(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1/result3.shp')
+    
+
+    #get transform
+    src = rasterio.open(img_path)
+    #create mask
+    mask = ma.masked_values(plant_contours, 0)    
+
     #vectorize
     results = (
         {'properties': {'raster_val': v}, 'geometry': s}
         for i, (s, v) 
         in enumerate(
-            features.shapes(plant_contours, mask=mask, connectivity=8, transform=src.transform)))
+            shapes(plant_contours, mask=mask, connectivity=8, transform=src.transform)))
     geoms = list(results)     
     #vectorize raster
     
@@ -111,7 +149,7 @@ def write_plants2shp(img_path, plant_contours, shp_dir, shp_name):
                 'geometry': mapping(coords),
                 'properties': {'id':i},
             })    
-    """
+    
     with fiona.open(str(outfile), 'w', 'ESRI Shapefile', schema, crs = from_epsg(4326)) as c:
         ## If there are multiple geometries, put the "for" loop here
         for i in range(len(geoms)):
@@ -124,7 +162,7 @@ def write_plants2shp(img_path, plant_contours, shp_dir, shp_name):
                                'Height': 0,
                                'Diameter': float(np.max([abs(bounds[2]-bounds[0]),abs(bounds[3]-bounds[1])]))},
             })    
-    """  
+      
     return
 
 """
@@ -148,11 +186,11 @@ kmeans_init = np.array([shadow_init, light_init, green_init])
 """
 #values for AB_Vakwerk image
 #maak initiële waarden voor clustering
-shadow_lab = cv2.cvtColor(np.array([[[11,11,17]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+shadow_lab = cv2.cvtColor(np.array([[[11,13,17]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
 #shadow_lab = cv2.cvtColor(np.array([[[10,10,10]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 light_lab = cv2.cvtColor(np.array([[[239,219,205]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
 #light_lab = cv2.cvtColor(np.array([[[220,220,220]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-green_lab = cv2.cvtColor(np.array([[[64,92,72]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
+green_lab = cv2.cvtColor(np.array([[[64,110,72]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 
 #convert to np array
 shadow_init = np.array(shadow_lab[0,0,1:3])
@@ -174,32 +212,35 @@ kmeans_init = np.array([shadow_init, light_init, green_init])
 8. kijk welk aantal init waarden (clusters) het beste werkt. 3 lijkt wat te weinig nu
 """
 
-train_data_path = r'E:\400 Data analysis\410 Plant count\Training_data'
+#train_data_path = r'E:\400 Data analysis\410 Plant count\Training_data'
 
 #get trained RFC model
-model, scaler = Random_Forest_Classifier.get_trained_model(train_data_path)
+#model, scaler = Random_Forest_Classifier.get_trained_model(train_data_path)
 
 #read image
 #src = gdal.Open(r"E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\NZ66_2\20190507\Orthomosaic/c08_biobrass-NZ66_2-20190507_clipped.tif")
 
 #output path and name (voor nu nog gewoon zelf opgeven tot het operationeel is)
-output_path = r'E:\400 Data analysis\410 Plant count\AB_Vakwerk_classificatie.jpg'
+output_path = r'E:\400 Data analysis\410 Plant count\conv_net_test_classificatie.jpg'
+
+#load model
+model = models.load_model(r'C:\Users\VanBoven/cats_and_dogs_small_1.h5')
 
 #
 min_plant_size = 25
-max_plant_size = 2500
+max_plant_size = 525
 
 #set block_size
 x_block_size = 4096
 y_block_size = 4096
 
 #img_path
-img_path = r"E:\200 Projects\202 AB_Vakwerk\Ortho/Rijweg_stalling1_subset.tif"
+img_path = r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 2\20190419\Orthomosaic/c01_verdonk-Rijweg stalling 2-20190419_clipped.tif"
 
 #list to create subsest of blocks
-it = list(range(0,7500, 1))
+it = list(range(0,7500, 10))
 #skip = True if you do not want to process each block but you want to process the entire image
-process_full_image = False
+process_full_image = True
 # Function to read the raster as arrays for the chosen block size.
 def count_plants_in_image(x_block_size, y_block_size, model, process_full_image, it, img_path):    
     tic = time.time()
@@ -216,11 +257,15 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
     kernel = np.ones((7,7), dtype='uint8')
     blocks = 0
     for y in range(0, ysize, y_block_size):
+        if y > 0:
+            y = y - 50
         if y + y_block_size < ysize:
             rows = y_block_size
         else:
             rows = ysize - y
         for x in range(0, xsize, x_block_size):
+            if x > 0:
+                x = x-50
             blocks += 1
             #if statement for subset
             if blocks in it:
@@ -263,7 +308,7 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     #convert output back to binary image                
                     kmeans_img = y_kmeans                
                     kmeans_img = kmeans_img.reshape(img.shape[0:2]).astype(np.uint8)
-                    binary_img = kmeans_img * 255
+                    binary_img = kmeans_img * 125
                     #close detected shapes
                     closing = cv2.morphologyEx(binary_img, cv2.MORPH_CLOSE, kernel)
                     #closing = cv2.morphologyEx(closing, cv2.MORPH_CLOSE, kernel)
@@ -287,6 +332,7 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                                 #x,y,w,h = cv2.boundingRect(cnt)
                                 output = img[bbox[1]-5: bbox[1]+bbox[3]+5, bbox[0]-5:bbox[0]+bbox[2]+5]
                                 if output.shape[0] * output.shape[1] > 0:
+                                    #prediction = model.predict(output)
                                     #output_features = Random_Forest_Classifier.get_image_features(output, scaler)                                
                                     #prediction = str(model.predict(output_features)[0])
                                     #print(prediction)
@@ -304,16 +350,17 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                                         #cv2.drawMarker(img, (cx,cy), (0,0,255), cv2.MARKER_STAR, markerSize = 5, thickness = 1)
                         #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1\rijwegstalling1_blocks_'+str(i)+'.jpg',img)     
                     # nr_of_img = create_training_data(img, closing, i)
-                    plant_contours[y:y+rows, x:x+cols] = plant_contours_temp
-                    
-                    write_plants2shp(img_path, plant_contours, shp_dir, shp_name)
-                    
-                    template[y:y+rows, x:x+cols] = closing
+                    #plant_contours[y:y+rows, x:x+cols] = plant_contours[y:y+rows, x:x+cols] + plant_contours_temp                    
+                    #write_plants2shp(img_path, plant_contours, shp_dir, shp_name)                    
+                    template[y:y+rows, x:x+cols] = template[y:y+rows, x:x+cols] + closing
                     print('processing of block ' + str(blocks) + ' finished')
-                    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1\rijwegstalling1_plant_contours_volledig'+str(i)+'.jpg',plant_contours)     
+                    #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1\rijwegstalling1_plant_contours_volledig'+str(i)+'.jpg',plant_contours)     
+    plant_contours[plant_contours > 0] = 255
     toc = time.time()
     print("processing of blocks took "+ str(toc - tic)+" seconds")
     if process_full_image == True:
+
+        print('Start with classification of objects')
         #initiate output img
         output = np.zeros([ysize,xsize,3], np.uint8)
         b = np.array(ds.GetRasterBand(1).ReadAsArray()).astype(np.uint(8))
@@ -326,9 +373,47 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
         output[:,:,2] = r
         r = None
         
+        result_img = np.zeros((template.shape[0],template.shape[1]),dtype=np.uint8)
+        
         #Get contours of features
         contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        #loop to contours for classification
+        #create df with relevant data
+        df = pd.DataFrame({'contours': contours})
+        df['area'] = df.contours.apply(lambda x:cv2.contourArea(x)) 
+        df = df[(df['area'] > 81) & (df['area'] < 500)]
+        df['moment'] = df.contours.apply(lambda x:cv2.moments(x))
+        df['centroid'] = df.moment.apply(lambda x:(int(x['m01']/x['m00']),int(x['m10']/x['m00'])))
+        df['cx'] = df.moment.apply(lambda x:int(x['m10']/x['m00']))
+        df['cy'] = df.moment.apply(lambda x:int(x['m01']/x['m00']))
+        df['bbox'] = df.contours.apply(lambda x:cv2.boundingRect(x))
+        #create input images for model
+        df['output'] = df.bbox.apply(lambda x:output[x[1]-5: x[1]+x[3]+5, x[0]-5:x[0]+x[2]+5])
+        df = df[df.output.apply(lambda x:x.shape[0]*x.shape[1]) > 0]
+        #resize data to create input tensor for model
+        df['input'] = (df['output']/255)
+        df.input.apply(lambda x:x.resize(50,50,3, refcheck=False))       
+        model_input = np.asarray(list(df.input.iloc[:]))
+        #predict
+        tic = time.time()
+        prediction = model.predict(model_input)
+        #get prediction result
+        pred_final = prediction.argmax(axis=1)
+        #add to df
+        df['prediction'] = pred_final
+        toc = time.time()
+        print('classification of '+str(len(df))+' objects took '+str(toc - tic) + ' seconds')
+        
+        write_plants2shp(img_path, df, shp_dir, shp_name)
+        
+
+        #Create mask with predictions
+        for i in range(len(df)):
+            cv2.drawContours(result_img, [df.contours.iloc[i]],-1, (df.prediction.iloc[i]+1),-1)
+        
+
+        write_plants2shp(img_path, )
+        
+        
         for cnt in contours:
             tic2 = time.time()
             #get area of each contour
