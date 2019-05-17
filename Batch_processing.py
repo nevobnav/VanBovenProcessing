@@ -99,7 +99,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     chunk.addPhotos(photoList)
     getAltitude(chunk)
     #set ground altitude at 0
-    chunk.meta["ground_altitude"] = 0
+    chunk.meta["ground_altitude"] = "0"
     chunk.camera_rotation_accuracy = [10.0,5.0,5.0]
     ################################################################################################
     ### align photos ###
