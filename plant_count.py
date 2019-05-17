@@ -35,6 +35,8 @@ from sklearn.ensemble import RandomForestClassifier
 
 from sklearn.datasets import make_blobs
 
+from PIL import Image
+
 #import rasterio
 import gdal
 from osgeo import gdalnumeric
@@ -58,6 +60,14 @@ import pyproj
 
 shp_dir = r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1'
 shp_name = 'test_points.shp'
+
+#resize input images
+def resize(x):
+    new_shape = (50,50,3)
+    x_resized = np.array(Image.fromarray(x).resize((50,50)))
+    #X_train_new = scipy.misc.imresize(x, new_shape)
+    x_rescaled = x_resized/255
+    return x_rescaled
 
 def points_in_array(x):
     for point in x:
@@ -102,8 +112,10 @@ def write_plants2shp(img_path, df, shp_dir, shp_name):
     gdf_poly = gdf_poly.drop(['contours', 'moment', 'cx', 'cy', 'bbox', 'output', 'input',
        'centroid', 'coords', 'geom', 'geom2'], axis=1)
     
-    gdf_point.to_file(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1/result3.shp')
-    
+    gdf_point.to_file(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/AZ74.shp')
+    gdf_poly.to_file(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/AZ74_shape.shp')    
+
+    return
 
     #get transform
     src = rasterio.open(img_path)
@@ -231,14 +243,17 @@ min_plant_size = 25
 max_plant_size = 525
 
 #set block_size
-x_block_size = 4096
-y_block_size = 4096
+#x_block_size = 4096
+#y_block_size = 4096
+
+x_block_size = 128
+y_block_size = 128
 
 #img_path
-img_path = r"E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 2\20190419\Orthomosaic/c01_verdonk-Rijweg stalling 2-20190419_clipped.tif"
+img_path = r"E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357_clipped.tif"
 
 #list to create subsest of blocks
-it = list(range(0,7500, 10))
+it = list(range(0,400000, 1))
 #skip = True if you do not want to process each block but you want to process the entire image
 process_full_image = True
 # Function to read the raster as arrays for the chosen block size.
@@ -258,14 +273,14 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
     blocks = 0
     for y in range(0, ysize, y_block_size):
         if y > 0:
-            y = y - 50
+            y = y #- 50
         if y + y_block_size < ysize:
             rows = y_block_size
         else:
             rows = ysize - y
         for x in range(0, xsize, x_block_size):
             if x > 0:
-                x = x-50
+                x = x #- 50
             blocks += 1
             #if statement for subset
             if blocks in it:
@@ -288,17 +303,30 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                 if img.mean() > 0:
                     #array = array.reshape(array.shape[1], array.shape[2], array.shape[0])
                     #perform filtering on image to make plants and backgrond more uniform
+                    
+                    img = ma.masked_equal(img, 0)	#Mask an array where equal to a given value.
+                    #mask = ma.masked_equal(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 0)
+                                                  
                     img2 = cv2.medianBlur(img, ksize = 5)
                     #convert to CieLAB colorspace
                     img_lab = cv2.cvtColor(img2, cv2.COLOR_BGR2LAB)
                     a = np.array(img_lab[:,:,1])
                     b2 = np.array(img_lab[:,:,2])
+                    
+   #                 a = ma.array(a)
+  #                  a[mask] = ma.masked
+                    
+ #                   b2 = ma.array(b2)
+#                    b2[mask] = ma.masked
+                  
                     #create input data array
+                    #test_a = ma.array(a)
+                    #test_a[mask] = ma.masked
                     a_flat = a.flatten()
                     b2_flat = b2.flatten()
-                    Classificatie_Lab = np.column_stack((a_flat, b2_flat))
+                    Classificatie_Lab = np.ma.column_stack((a_flat, b2_flat))
                     #perform kmeans clustering
-                    kmeans = KMeans(init = kmeans_init, n_jobs = -1, max_iter = 25, n_clusters = 3)
+                    kmeans = KMeans(init = kmeans_init, n_jobs = -1, max_iter = 25, n_clusters = 3, verbose = False)
                     kmeans.fit(Classificatie_Lab)
                     y_kmeans = kmeans.predict(Classificatie_Lab)
                     #Get plants
@@ -354,7 +382,7 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     #write_plants2shp(img_path, plant_contours, shp_dir, shp_name)                    
                     template[y:y+rows, x:x+cols] = template[y:y+rows, x:x+cols] + closing
                     print('processing of block ' + str(blocks) + ' finished')
-                    #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1\rijwegstalling1_plant_contours_volledig'+str(i)+'.jpg',plant_contours)     
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\AZ74'+str(i)+'.jpg',template)     
     plant_contours[plant_contours > 0] = 255
     toc = time.time()
     print("processing of blocks took "+ str(toc - tic)+" seconds")
@@ -390,9 +418,15 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
         df['output'] = df.bbox.apply(lambda x:output[x[1]-5: x[1]+x[3]+5, x[0]-5:x[0]+x[2]+5])
         df = df[df.output.apply(lambda x:x.shape[0]*x.shape[1]) > 0]
         #resize data to create input tensor for model
-        df['input'] = (df['output']/255)
-        df.input.apply(lambda x:x.resize(50,50,3, refcheck=False))       
+        df['input'] = df.output.apply(lambda x:resize(x))
+        
+        #remove img from memory
+        output = None
+        
+        #resize images
+        #df.input.apply(lambda x:x.resize(50,50,3, refcheck=False))       
         model_input = np.asarray(list(df.input.iloc[:]))
+        
         #predict
         tic = time.time()
         prediction = model.predict(model_input)
