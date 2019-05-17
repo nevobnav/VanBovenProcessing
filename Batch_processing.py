@@ -51,13 +51,13 @@ def getAltitude(chunk):
     chunk.updateTransform()
     Metashape.app.update()
     print("Script finished")
-    
+
 def get_first_img_time(chunk):
     camera = chunk.cameras[0]
     cam_datetime = camera.photo.meta['Exif/DateTime']
-    img_time = cam_datetime[11:16].replace(':','')    
+    img_time = cam_datetime[11:16].replace(':','')
     return img_time
-    
+
 def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality):
     #if folder.endswith('Perceel1'): ook een optie afhankelijk van naamgeving mappen
     #path = folder
@@ -98,13 +98,16 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     # - filenames(list of string) – A list of file paths.
     chunk.addPhotos(photoList)
     getAltitude(chunk)
+    #set ground altitude at 0
+    chunk.meta["ground_altitude"] = "0"
+    chunk.camera_rotation_accuracy = [10.0,5.0,5.0]
     ################################################################################################
     ### align photos ###
     ## Perform image matching for the chunk frame.
     # - Alignment accuracy in [HighestAccuracy, HighAccuracy, MediumAccuracy, LowAccuracy, LowestAccuracy]
     # - Image pair preselection in [ReferencePreselection, GenericPreselection, NoPreselection]
     tic = time.clock()
-    chunk.matchPhotos(accuracy=Metashape.HighestAccuracy, preselection=Metashape.ReferencePreselection, filter_mask=False, keypoint_limit=40000, tiepoint_limit=4000)
+    chunk.matchPhotos(accuracy=Metashape.HighestAccuracy, preselection=Metashape.ReferencePreselection, filter_mask=False, keypoint_limit=40000, tiepoint_limit=4000, adaptive_fitting=True)
     chunk.alignCameras()
 
     #iteratively align images until at least 97% is aligned
@@ -150,7 +153,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     #every step lower dan UltraQuality downscales the images by a factor 4 (2x per side)
     # - Depth filtering mode in [AggressiveFiltering, ModerateFiltering, MildFiltering, NoFiltering]
     tic = time.clock()
-    
+
     if quality == "Medium":
         chunk.buildDepthMaps(quality=Metashape.MediumQuality, filter=Metashape.MildFiltering)
     if quality == "Low":
@@ -215,7 +218,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
 
     #if not os.path.exists(temp_processing_folder+"\\Orthomosaic\\"):
         #os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
-    
+
     #get time of first image
     img_time = get_first_img_time(chunk)
 
@@ -293,11 +296,11 @@ for proces_file in os.listdir(process_path):
                 with open(os.path.join(os.path.dirname(photoList[0]),"processed.txt"), "w") as text_file:
                     text_file.write("Processed "+str(nr_of_plots)+ " plots and " +str(nr_of_images)+" images")
                 #create df with info for processinglog in ortho inbox
-                df = pd.DataFrame([[day_of_recording,timestr[:8], tic, customer_id, plot_id, nr_of_images, (str(day_of_recording) + "_" + str(timestr_save)+'.psx')]], 
+                df = pd.DataFrame([[day_of_recording,timestr[:8], tic, customer_id, plot_id, nr_of_images, (str(day_of_recording) + "_" + str(timestr_save)+'.psx')]],
                     columns = ['Flight date',	'Processing date',	'Start time',	'Customer Name',	'Plot Name',	'No of photos',	'Agisoft filename'])
                 #append info to processinglog.xlsx
                 append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
-                
+
                 """
                 This part of code is redundant now
                 try:
