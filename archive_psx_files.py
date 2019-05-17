@@ -36,9 +36,9 @@ def find_old_psx_files(metashape_path, days_to_store):
                             os.remove(psx_file)
                             file_dir = psx_file[:-4]+'.files'
                             shutil.rmtree(file_dir)
+                        else:
+                            continue
                     except:
                         print('error encountered while archiving')
-                            ''
-                   
 
 find_old_psx_files(metashape_path, days_to_store)
