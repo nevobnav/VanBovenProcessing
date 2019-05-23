@@ -10,7 +10,6 @@ from sqlalchemy.sql import select
 from geoalchemy2 import Geometry
 
 
-
 def connect(user, password, db, host='localhost', port=5432):
     '''Returns a connection and a metadata object'''
     # We connect with the help of the PostgreSQL URL
@@ -34,7 +33,8 @@ def insert_new_scan(date, time, plot, meta, con):
         plot_id = get_plot_id(plot,meta,con)
     new_scan = {'date': date,
                 'time': time,
-                'plot_id': plot_id
+                'plot_id': plot_id,
+                'zoomlevel': 23
                 }
     scans = meta.tables['portal_scan']
     insert_new_scan = scans.insert().values(new_scan)

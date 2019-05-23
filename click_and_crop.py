@@ -9,12 +9,12 @@ from tkinter import *
 from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import cv2
-
+import os
 
 
 coords = []
 #straal vanaf het midden tot uiterste rand van object
-plant_straal = 15
+plant_straal = 20
 #categorie, kies uit Broccoli, Background, Grass, Cover etc.
 cat = 'Background'
 
@@ -56,4 +56,4 @@ img = cv2.imread(str(File), -1)
 
 for x, y in coords:
     output = img[y-plant_straal: y+plant_straal,x-plant_straal:x+plant_straal]
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Training_data/' +str(cat) +'/click_' + str(File[-22:-4]) + str(x)+str(y)+'.jpg', output)
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Training_data/' +str(cat) +'/click_' + str(os.path.basename(File[:-4])) + str(x)+str(y)+'.jpg', output)

@@ -19,7 +19,8 @@ from vanbovendatabase.postgres_lib import *
 import datetime
 import select
 
-
+#23 is default
+zoomlevel = str(sys.argv[1])
 
 ## FUNCTIONS ##
 
@@ -201,7 +202,7 @@ for ortho in ortho_que:
         newtile = True
     os.mkdir(output_folder)
     # batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
-    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none -o tms'
+    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ zoomlevel +' -w none -o tms'
     #Would be great if we can use the direct python funciton. This requires either building an options args element, or manually fixing gdal2tiles.py
     #argv= gdal.GeneralCmdLineProcessor(['"'+str(input_file)+'"','"'+str(output_folder)+'"','--processes' ,'14' ,'-z', '16-23', '-w' ,'none'])
     #input_file, output_folder, options = process_args(argv[1:])

@@ -52,6 +52,9 @@ from functools import partial
 from shapely.ops import transform
 import pyproj
 
+    
+from skimage.util.shape import view_as_blocks
+
 #Liederik groene pixels sample:
 #band1, band2, band3 = [90,127,74]
 #band1, band2, band3 = [106,144,86]
@@ -198,11 +201,11 @@ kmeans_init = np.array([shadow_init, light_init, green_init])
 """
 #values for AB_Vakwerk image
 #maak initiële waarden voor clustering
-shadow_lab = cv2.cvtColor(np.array([[[11,13,17]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+shadow_lab = cv2.cvtColor(np.array([[[0,0,0]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
 #shadow_lab = cv2.cvtColor(np.array([[[10,10,10]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-light_lab = cv2.cvtColor(np.array([[[239,219,205]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+light_lab = cv2.cvtColor(np.array([[[255,255,255]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
 #light_lab = cv2.cvtColor(np.array([[[220,220,220]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-green_lab = cv2.cvtColor(np.array([[[64,110,72]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
+green_lab = cv2.cvtColor(np.array([[[100,255,150]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 
 #convert to np array
 shadow_init = np.array(shadow_lab[0,0,1:3])
@@ -239,21 +242,21 @@ output_path = r'E:\400 Data analysis\410 Plant count\conv_net_test_classificatie
 model = models.load_model(r'C:\Users\VanBoven/cats_and_dogs_small_1.h5')
 
 #
-min_plant_size = 25
+min_plant_size = 16
 max_plant_size = 525
 
 #set block_size
 #x_block_size = 4096
 #y_block_size = 4096
 
-x_block_size = 128
-y_block_size = 128
+x_block_size = 512  
+y_block_size = 512
 
 #img_path
-img_path = r"E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357_clipped.tif"
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357.tif'
 
 #list to create subsest of blocks
-it = list(range(0,400000, 1))
+it = list(range(0,400000, 3))
 #skip = True if you do not want to process each block but you want to process the entire image
 process_full_image = True
 # Function to read the raster as arrays for the chosen block size.
@@ -306,8 +309,10 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     
                     img = ma.masked_equal(img, 0)	#Mask an array where equal to a given value.
                     #mask = ma.masked_equal(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 0)
-                                                  
-                    img2 = cv2.medianBlur(img, ksize = 5)
+                    
+                    img2 = img                             
+                    #img2 = cv2.medianBlur(img, ksize = 5)
+                    
                     #convert to CieLAB colorspace
                     img_lab = cv2.cvtColor(img2, cv2.COLOR_BGR2LAB)
                     a = np.array(img_lab[:,:,1])
@@ -382,7 +387,7 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     #write_plants2shp(img_path, plant_contours, shp_dir, shp_name)                    
                     template[y:y+rows, x:x+cols] = template[y:y+rows, x:x+cols] + closing
                     print('processing of block ' + str(blocks) + ' finished')
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\AZ74'+str(i)+'.jpg',template)     
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c03_termote\10m_test_binnendijk_links'+str(i)+'.jpg',template)     
     plant_contours[plant_contours > 0] = 255
     toc = time.time()
     print("processing of blocks took "+ str(toc - tic)+" seconds")
@@ -479,19 +484,141 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
     
     
     
+    
    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+img = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
+img = ma.masked_equal(img, 255)	#Mask an array where equal to a given value.
+mask = img.mask
+mask = np.dstack((mask,mask,mask))
+
+output[mask] = 0
+
+mask = img.mask.reshape(img.shape[0], img.shape[1], 3)
+
+output = np.ma.array(output, mask = mask)
+
+def make_blocks_vectorized_v2(x,d):
+    return view_as_blocks(x,(d,d, x.shape[2])).squeeze()
+
+def get_windows(x, d):
+    #create array with shape devidable by d
+    z = np.zeros(((int(x.shape[0]/32)+1)*d,(int(x.shape[1]/32)+1)*d, 3), dtype = np.uint8)
+    #set values of x to new array
+    z[:x.shape[0],:x.shape[1],:] = x
+    z = make_blocks_vectorized_v2(z,d)
+    z = z.reshape((z.shape[0]*z.shape[1]),d,d,3)
+    return z
+
+
+
+#z = np.zeros((3, (int(x.shape[1]/32)+1)*d,(int(x.shape[2]/32)+1)*d), dtype = np.uint8)
+#z[:,:x.shape[1],:x.shape[2]] = x
+d = 32
+z = get_windows(output,d)
+
+
+
+
+j = list(range(0,z.shape[0]-25000, 25000))
+k = list(range(25000, z.shape[0], 25000)) 
+test2 = []
+for i in range(1):#len(j)):
+    chunk = z[j[i]:k[i],:,:,:]
+    for l in range(chunk.shape[0]):
+        temp = resize(chunk[l,:,:,:])
+        if temp.mean() < 1:
+            test2.append(temp)
+
+model_input = np.asarray(test2)
+
+test2 = pd.DataFrame({'img':test2})
+test2.img.apply(lambda x:resize(x))  
+model_input = np.asarray(list(test2.img.iloc[:]))
+
+tic = time.time()
+prediction = model.predict(reshaped[200000:700000,:,:,:])
+toc= time.time()
+print('classification of '+str(len(df))+' objects took '+str(toc - tic) + ' seconds')
+
+
+
+
+
+
+x = cv2.imread(r'E:\400 Data analysis\410 Plant count\Training_data\Broccoli/AZ74_190513_21693.jpg',-1)
+x = resize(x)
+x = x[np.newaxis,:]
+prediction = model.predict(x)
+
+from tensorflow.keras import backend as K
+
+# This is the "broccoli" entry in the prediction vector
+broccoli_output = model.output[:, 1]
+# This is the output feature map of
+# the last convolutional layer in our model
+last_conv_layer = model.get_layer(index=-6)
+# This is the gradient of the "african elephant" class with regard to
+# the output feature map of `block5_conv3`
+grads = K.gradients(broccoli_output, last_conv_layer.output)[0]
+# This is a vector of shape (512,), where each entry
+# is the mean intensity of the gradient over a specific feature map channel
+pooled_grads = K.mean(grads, axis=(0, 1, 2))
+# This function allows us to access the values of the quantities we just defined:
+# `pooled_grads` and the output feature map of `block5_conv3`,
+# given a sample image
+iterate = K.function([model.input], [pooled_grads, last_conv_layer.output[0]])
+# These are the values of these two quantities, as Numpy arrays,
+# given our sample image of two elephants
+pooled_grads_value, conv_layer_output_value = iterate([x])
+# We multiply each channel in the feature map array
+# by "how important this channel is" with regard to the elephant class
+for i in range(512):
+conv_layer_output_value[:, :, i] *= pooled_grads_value[i]
+# The channel-wise mean of the resulting feature map
+# is our heatmap of class activation
+heatmap = np.mean(conv_layer_output_value, axis=-1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
     toc = time.time()
                      
@@ -515,7 +642,7 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
     #create img
     img = np.zeros([b.shape[0],b.shape[1],3], np.uint8)
     img[:,:,0] = b
-    img[:,:,1] = g
+    img[:,:,1] = g #<-- Lekker bezig G
     img[:,:,2] = r
     
     #temp voor development     
