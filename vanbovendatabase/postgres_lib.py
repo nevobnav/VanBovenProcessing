@@ -25,7 +25,7 @@ def connect(user, password, db, host='localhost', port=5432):
 
     return con, meta
 
-def insert_new_scan(date, time, plot, meta, con):
+def insert_new_scan(date, time, plot, meta, con, zoomlevel = 23, flight_altitude=35):
     try:
         int(plot)
         plot_id = plot
@@ -34,7 +34,8 @@ def insert_new_scan(date, time, plot, meta, con):
     new_scan = {'date': date,
                 'time': time,
                 'plot_id': plot_id,
-                'zoomlevel': 23
+                'zoomlevel': zoomlevel,
+                'flight_altitude': flight_altitude
                 }
     scans = meta.tables['portal_scan']
     insert_new_scan = scans.insert().values(new_scan)

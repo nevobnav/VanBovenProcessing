@@ -12,6 +12,7 @@ Created on Thu Apr 25 14:46:57 2019
 @author: ericv
 """
 from tensorflow.keras import models
+from tensorflow.keras import backend as K
 
 import os
 os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing')
@@ -32,6 +33,7 @@ from sklearn.cluster import MiniBatchKMeans
 import Random_Forest_Classifier
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn import preprocessing
 
 from sklearn.datasets import make_blobs
 
@@ -63,6 +65,14 @@ from skimage.util.shape import view_as_blocks
 
 shp_dir = r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1'
 shp_name = 'test_points.shp'
+
+
+def ExG(b,g,r):
+    scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
+    ExG_index = np.asarray((2.0*g - b - r), dtype=np.float32)
+    #ExG_index[ExG_index < 0] = 0
+    ExG_index = np.asarray(scaler.fit_transform(ExG_index),dtype=np.uint8)    
+    return ExG_index
 
 #resize input images
 def resize(x):
@@ -115,8 +125,8 @@ def write_plants2shp(img_path, df, shp_dir, shp_name):
     gdf_poly = gdf_poly.drop(['contours', 'moment', 'cx', 'cy', 'bbox', 'output', 'input',
        'centroid', 'coords', 'geom', 'geom2'], axis=1)
     
-    gdf_point.to_file(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/AZ74.shp')
-    gdf_poly.to_file(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2/AZ74_shape.shp')    
+    gdf_point.to_file(r'E:\400 Data analysis\410 Plant count\test_results/'+ str(os.path.basename(img_path))[:-4]+'_points2.shp')
+    gdf_poly.to_file(r'E:\400 Data analysis\410 Plant count\test_results/'+ str(os.path.basename(img_path))[:-4]+'_poly2.shp')    
 
     return
 
@@ -201,18 +211,19 @@ kmeans_init = np.array([shadow_init, light_init, green_init])
 """
 #values for AB_Vakwerk image
 #maak initiële waarden voor clustering
-shadow_lab = cv2.cvtColor(np.array([[[0,0,0]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
-#shadow_lab = cv2.cvtColor(np.array([[[10,10,10]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-light_lab = cv2.cvtColor(np.array([[[255,255,255]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+cover_lab = cv2.cvtColor(np.array([[[215,198,190]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
+cover_init = np.array(cover_lab[0,0,1:3], dtype = np.uint8)
+background_init = cv2.cvtColor(np.array([[[120,125,160]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+background_init = np.array(background_init[0,0,1:3])
 #light_lab = cv2.cvtColor(np.array([[[220,220,220]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-green_lab = cv2.cvtColor(np.array([[[100,255,150]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-
-#convert to np array
-shadow_init = np.array(shadow_lab[0,0,1:3])
-light_init = np.array(light_lab[0,0,1:3])
+green_lab = cv2.cvtColor(np.array([[[100,190,150]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 green_init = np.array(green_lab[0,0,1:3])
+#convert to np array
+#shadow_init = np.array(shadow_lab[0,0,1:3])
+#light_init = np.array(light_lab[0,0,1:3])
 
-kmeans_init = np.array([shadow_init, light_init, green_init])
+#
+kmeans_init = np.array([background_init, green_init, cover_init])
 
 #ToDo:
 """
@@ -239,7 +250,21 @@ kmeans_init = np.array([shadow_init, light_init, green_init])
 output_path = r'E:\400 Data analysis\410 Plant count\conv_net_test_classificatie.jpg'
 
 #load model
-model = models.load_model(r'C:\Users\VanBoven/cats_and_dogs_small_1.h5')
+model = models.load_model(r'C:\Users\VanBoven\Documents\GitHub\DataAnalysis/Broccoli_VGG16_fine_tuned.h5')
+
+def make_blocks_vectorized_v2(x,d):
+    return view_as_blocks(x,(d,d, x.shape[2])).squeeze()
+
+def get_windows(x, d):
+    #create array with shape devidable by d
+    z = np.zeros(((int(x.shape[0]/d)+1)*d,(int(x.shape[1]/d)+1)*d, 3), dtype = np.uint8)
+    #set values of x to new array
+    z[:x.shape[0],:x.shape[1],:] = x
+    x = None
+    z = make_blocks_vectorized_v2(z,d)
+    z_rows, z_cols = (z.shape[0], z.shape[1])
+    z = z.reshape((z.shape[0]*z.shape[1]),d,d,3)
+    return z, z_rows, z_cols
 
 #
 min_plant_size = 16
@@ -249,14 +274,16 @@ max_plant_size = 525
 #x_block_size = 4096
 #y_block_size = 4096
 
-x_block_size = 512  
-y_block_size = 512
+x_block_size = 256
+y_block_size = 256
 
 #img_path
-img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Wever west\20190423\Orthomosaic/c01_verdonk-Wever west-20190423_clipped.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c07_hollandbean\Hendrik de Heer\20190513\1422\Orthomosaic/c07_hollandbean-Hendrik de Heer-201905131422_clipped.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Mammoet\20190521\1139\Orthomosaic/c01_verdonk-Mammoet-201905211139_clipped.tif'
 
 #list to create subsest of blocks
-it = list(range(0,400000, 3))
+it = list(range(0,100000, 1))
 #skip = True if you do not want to process each block but you want to process the entire image
 process_full_image = True
 # Function to read the raster as arrays for the chosen block size.
@@ -276,14 +303,14 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
     blocks = 0
     for y in range(0, ysize, y_block_size):
         if y > 0:
-            y = y #- 50
+            y = y - 30
         if y + y_block_size < ysize:
             rows = y_block_size
         else:
             rows = ysize - y
         for x in range(0, xsize, x_block_size):
             if x > 0:
-                x = x #- 50
+                x = x - 30
             blocks += 1
             #if statement for subset
             if blocks in it:
@@ -291,9 +318,9 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     cols = x_block_size
                 else:
                     cols = xsize - x
-                b = np.array(ds.GetRasterBand(1).ReadAsArray(x, y, cols, rows)).astype(np.uint(8))
-                g = np.array(ds.GetRasterBand(2).ReadAsArray(x, y, cols, rows)).astype(np.uint(8))
-                r = np.array(ds.GetRasterBand(3).ReadAsArray(x, y, cols, rows)).astype(np.uint(8))
+                b = np.array(ds.GetRasterBand(1).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
+                g = np.array(ds.GetRasterBand(2).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
+                r = np.array(ds.GetRasterBand(3).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
                 img = np.zeros([b.shape[0],b.shape[1],3], np.uint8)
                 img[:,:,0] = b
                 img[:,:,1] = g
@@ -317,36 +344,79 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     img_lab = cv2.cvtColor(img2, cv2.COLOR_BGR2LAB)
                     a = np.array(img_lab[:,:,1])
                     b2 = np.array(img_lab[:,:,2])
-                    
+
    #                 a = ma.array(a)
   #                  a[mask] = ma.masked
                     
  #                   b2 = ma.array(b2)
 #                    b2[mask] = ma.masked
-                  
+                    
                     #create input data array
                     #test_a = ma.array(a)
                     #test_a[mask] = ma.masked
+                     
                     a_flat = a.flatten()
                     b2_flat = b2.flatten()
                     Classificatie_Lab = np.ma.column_stack((a_flat, b2_flat))
                     #perform kmeans clustering
-                    kmeans = KMeans(init = kmeans_init, n_jobs = -1, max_iter = 25, n_clusters = 3, verbose = False)
+                    kmeans = KMeans(init = kmeans_init, n_jobs = -1, max_iter = 25, n_clusters = 3, verbose = 0)
                     kmeans.fit(Classificatie_Lab)
                     y_kmeans = kmeans.predict(Classificatie_Lab)
                     #Get plants
                     y_kmeans[y_kmeans == 0] = 0
-                    y_kmeans[y_kmeans == 1] = 0
-                    y_kmeans[y_kmeans == 2] = 1
+                    y_kmeans[y_kmeans == 1] = 1
+                    y_kmeans[y_kmeans == 2] = 0
                     #convert output back to binary image                
                     kmeans_img = y_kmeans                
                     kmeans_img = kmeans_img.reshape(img.shape[0:2]).astype(np.uint8)
                     binary_img = kmeans_img * 125
                     #close detected shapes
+                    
                     closing = cv2.morphologyEx(binary_img, cv2.MORPH_CLOSE, kernel)
                     #closing = cv2.morphologyEx(closing, cv2.MORPH_CLOSE, kernel)
                     #closing = cv2.morphologyEx(closing, cv2.MORPH_CLOSE, kernel)
                     #write blocks on original sized image
+                    """  
+
+                    
+                    #for d in range(28, 35, 4):
+                    for i in range(2):
+                        d = 32        
+                        if i == 0:
+                            z, z_rows, z_cols = get_windows(img,d)
+                        if i == 1:
+                            moved_img = img[d//2:, d//2:, :]
+                            z, z_rows, z_cols = get_windows(moved_img,d)
+                        model_input = []
+                        for window in z:
+                            window = resize(window)
+                            model_input.append(window)
+                        model_input = np.asarray(model_input)                        
+                        tic2 = time.time()
+                        prediction = model.predict(model_input)
+                        pred_final = prediction.argmax(axis=1)
+                        toc= time.time()
+                        print('classification of '+str(model_input.shape[0])+' objects took '+str(toc - tic2) + ' seconds')
+                        pred_final = pred_final.reshape((z_rows, z_cols))
+                        for z_row in range(pred_final.shape[0]):
+                            for z_col in range(pred_final.shape[1]):
+                                if pred_final[z_row, z_col] == 1:
+                                    #ExGreen = ExG(img[z_row*d:z_row*d+d, z_col*d:z_col*d+d, 0], img[z_row*d:z_row*d+d, z_col*d:z_col*d+d, 1], img[z_row*d:z_row*d+d, z_col*d:z_col*d+d, 2])
+                                    #tresh, binary = cv2.threshold(ExGreen, 0, 255, cv2.THRESH_OTSU)
+                                    #heatmap_img = model_input[z_row+z_col]
+                                    #heatmap_img = heatmap_img[np.newaxis,:]
+                                    #window_img = get_heatmap(model, heatmap_img, d)#model_input[z_row+z_col])
+                                    if i == 0:
+                                        cv2.rectangle(img,(z_col*d,z_row*d),(z_col*d+d,z_row*d+d),(0,250,0),2)
+                                    if i == 1:
+                                        cv2.rectangle(img,(z_col*d+int(d//2),z_row*d+int(d//2)),(z_col*d+int(1.5*d),z_row*d+int(1.5*d)),(250,0,0),2)
+                                    #if window_img[0,:,:,:].shape[0] == 50
+                                    #try:
+                                    #img[z_col*d:z_col*d+d,z_row*d:z_row*d+d] =  img[z_col*d:z_col*d+d,z_row*d:z_row*d+d] + window_img[:,:,:]
+                                    #except:
+                                        #continue
+                                    #img[z_row*d:z_row*d+d, z_col*d:z_col*d+d] = np.dstack((binary, binary, binary)) 
+                    closing = img
                     
                     if process_full_image == False:
                         contours, hierarchy = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -384,11 +454,13 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                         #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 1\rijwegstalling1_blocks_'+str(i)+'.jpg',img)     
                     # nr_of_img = create_training_data(img, closing, i)
                     #plant_contours[y:y+rows, x:x+cols] = plant_contours[y:y+rows, x:x+cols] + plant_contours_temp                    
-                    #write_plants2shp(img_path, plant_contours, shp_dir, shp_name)                    
+                    #write_plants2shp(img_path, plant_contours, shp_dir, shp_name)
+                    """                    
                     template[y:y+rows, x:x+cols] = template[y:y+rows, x:x+cols] + closing
                     print('processing of block ' + str(blocks) + ' finished')
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c03_termote\10m_test_binnendijk_links'+str(i)+'.jpg',template)     
-    plant_contours[plant_contours > 0] = 255
+                    template_name = os.path.basename(img_path)[:-4].replace(' ', '_')
+    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\test_results\mask_'+template_name+'.png',template)     
+    #plant_contours[plant_contours > 0] = 255
     toc = time.time()
     print("processing of blocks took "+ str(toc - tic)+" seconds")
     if process_full_image == True:
@@ -409,11 +481,11 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
         result_img = np.zeros((template.shape[0],template.shape[1]),dtype=np.uint8)
         
         #Get contours of features
-        contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contours, hierarchy = cv2.findContours(template, cv2.RETR_LIST , cv2.CHAIN_APPROX_NONE)
         #create df with relevant data
         df = pd.DataFrame({'contours': contours})
         df['area'] = df.contours.apply(lambda x:cv2.contourArea(x)) 
-        df = df[(df['area'] > 81) & (df['area'] < 500)]
+        df = df[(df['area'] > 16) & (df['area'] < 1500)]
         df['moment'] = df.contours.apply(lambda x:cv2.moments(x))
         df['centroid'] = df.moment.apply(lambda x:(int(x['m01']/x['m00']),int(x['m10']/x['m00'])))
         df['cx'] = df.moment.apply(lambda x:int(x['m10']/x['m00']))
@@ -444,7 +516,7 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
         
         write_plants2shp(img_path, df, shp_dir, shp_name)
         
-
+"""
         #Create mask with predictions
         for i in range(len(df)):
             cv2.drawContours(result_img, [df.contours.iloc[i]],-1, (df.prediction.iloc[i]+1),-1)
@@ -485,19 +557,6 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
     
     
     
-   
-
-
-img = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
-img = ma.masked_equal(img, 255)	#Mask an array where equal to a given value.
-mask = img.mask
-mask = np.dstack((mask,mask,mask))
-
-output[mask] = 0
-
-mask = img.mask.reshape(img.shape[0], img.shape[1], 3)
-
-output = np.ma.array(output, mask = mask)
 
 def make_blocks_vectorized_v2(x,d):
     return view_as_blocks(x,(d,d, x.shape[2])).squeeze()
@@ -507,6 +566,7 @@ def get_windows(x, d):
     z = np.zeros(((int(x.shape[0]/32)+1)*d,(int(x.shape[1]/32)+1)*d, 3), dtype = np.uint8)
     #set values of x to new array
     z[:x.shape[0],:x.shape[1],:] = x
+    x = None
     z = make_blocks_vectorized_v2(z,d)
     z = z.reshape((z.shape[0]*z.shape[1]),d,d,3)
     return z
@@ -524,7 +584,7 @@ z = get_windows(output,d)
 j = list(range(0,z.shape[0]-25000, 25000))
 k = list(range(25000, z.shape[0], 25000)) 
 test2 = []
-for i in range(1):#len(j)):
+for i in range(len(j)):
     chunk = z[j[i]:k[i],:,:,:]
     for l in range(chunk.shape[0]):
         temp = resize(chunk[l,:,:,:])
@@ -552,13 +612,24 @@ x = resize(x)
 x = x[np.newaxis,:]
 prediction = model.predict(x)
 
-from tensorflow.keras import backend as K
 
-# This is the "broccoli" entry in the prediction vector
+np.argmax(prediction[0])
+
+
+
+
+    grads = normalize(K.gradients(loss, conv_output)[0])
+    gradient_function = \
+        K.function([model.layers[0].input], [conv_output, grads])
+
+    output, grads_val = gradient_function([image])
+
+
+# This is the "african elephant" entry in the prediction vector
 broccoli_output = model.output[:, 1]
-# This is the output feature map of
-# the last convolutional layer in our model
-last_conv_layer = model.get_layer(index=-6)
+# The is the output feature map of the `block5_conv3` layer,
+# the last convolutional layer in VGG16
+last_conv_layer = model.get_layer('conv2d_3')
 # This is the gradient of the "african elephant" class with regard to
 # the output feature map of `block5_conv3`
 grads = K.gradients(broccoli_output, last_conv_layer.output)[0]
@@ -574,11 +645,103 @@ iterate = K.function([model.input], [pooled_grads, last_conv_layer.output[0]])
 pooled_grads_value, conv_layer_output_value = iterate([x])
 # We multiply each channel in the feature map array
 # by "how important this channel is" with regard to the elephant class
-for i in range(512):
-conv_layer_output_value[:, :, i] *= pooled_grads_value[i]
+for i in range(128):
+    conv_layer_output_value[:, :, i] *= pooled_grads_value[i]
 # The channel-wise mean of the resulting feature map
 # is our heatmap of class activation
 heatmap = np.mean(conv_layer_output_value, axis=-1)
+heatmap = np.maximum(heatmap, 0)
+heatmap /= np.max(heatmap)
+plt.matshow(heatmap)
+
+# We use cv2 to load the original image
+img = cv2.imread(img_path)
+# We resize the heatmap to have the same size as the original image
+heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
+# We convert the heatmap to RGB
+heatmap = np.uint8(255 * heatmap)
+# We apply the heatmap to the original image
+heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+# 0.4 here is a heatmap intensity factor
+superimposed_img = heatmap * 0.4 + img
+# Save the image to disk
+cv2.imwrite('/Users/fchollet/Downloads/elephant_cam.jpg', superimposed_img)
+
+def get_heatmap(model, heatmap_img, d):
+    # This is the "broccoli" entry in the prediction vector
+    broccoli_output = model.output[:, 1]
+    # This is the output feature map of
+    # the last convolutional layer in our model
+    last_conv_layer = model.get_layer('conv2d_3')
+    # This is the gradient of the "african elephant" class with regard to
+    # the output feature map of `block5_conv3`
+    grads = K.gradients(broccoli_output, last_conv_layer.output)[0]
+    # This is a vector of shape (512,), where each entry
+    # is the mean intensity of the gradient over a specific feature map channel
+    pooled_grads = K.mean(grads, axis=(0, 1, 2))
+    # This function allows us to access the values of the quantities we just defined:
+    # `pooled_grads` and the output feature map of `block5_conv3`,
+    # given a sample image
+    iterate = K.function([model.input], [pooled_grads, last_conv_layer.output[0]])
+    # These are the values of these two quantities, as Numpy arrays,
+    # given our sample image of two elephants
+    pooled_grads_value, conv_layer_output_value = iterate([heatmap_img])
+    # We multiply each channel in the feature map array
+    # by "how important this channel is" with regard to the elephant class
+    for i in range(128):
+        conv_layer_output_value[:, :, i] *= pooled_grads_value[i]
+    # The channel-wise mean of the resulting feature map
+    # is our heatmap of class activation
+    heatmap = np.mean(conv_layer_output_value, axis=-1)
+    
+    #show
+    heatmap = np.maximum(heatmap, 0)
+    if heatmap.max() != 0:
+        heatmap /= np.max(heatmap)
+    
+        # We use cv2 to load the original image
+        #img = cv2.imread(r'E:\400 Data analysis\410 Plant count\Training_data\Broccoli/AZ74_190513_21693.jpg')
+        # We resize the heatmap to have the same size as the original image
+        #heatmap = cv2.resize(heatmap, (x.shape[2], x.shape[1]))
+        heatmap = cv2.resize(heatmap, (d, d))
+        # We convert the heatmap to RGB
+        heatmap = np.uint8(255 * heatmap)
+        # We apply the heatmap to the original image
+        heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+        # 0.4 here is a heatmap intensity factor
+        superimposed_img = heatmap * 0.4 #+ x
+    else:
+        superimposed_img = np.zeros((d, d, 3))
+    return superimposed_img
+    
+# Save the image to disk
+cv2.imwrite(r'E:\400 Data analysis\410 Plant count\Broccoli_heatmap.jpg', superimposed_img)
+
+
+
+
+
+
+
+layer_name = 'dense_1'
+
+size = 64
+margin = 5
+# This a empty (black) image where we will store our results.
+results = np.zeros((8 * size + 7 * margin, 8 * size + 7 * margin, 3))
+for i in range(8): # iterate over the rows of our results grid
+    for j in range(8): # iterate over the columns of our results grid
+        # Generate the pattern for filter `i + (j * 8)` in `layer_name`
+        filter_img = generate_pattern(layer_name, i + (j * 8), size=size)
+        # Put the result in the square `(i, j)` of the results grid
+        horizontal_start = i * size + i * margin
+        horizontal_end = horizontal_start + size
+        vertical_start = j * size + j * margin
+        vertical_end = vertical_start + size
+        results[horizontal_start: horizontal_end, vertical_start: vertical_end, :] = filter_img
+# Display the results grid
+plt.figure(figsize=(20, 20))
+plt.imshow(results)
 
 
 
@@ -588,19 +751,26 @@ heatmap = np.mean(conv_layer_output_value, axis=-1)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+def generate_pattern(layer_name, filter_index, size=150):
+     # Build a loss function that maximizes the activation
+     # of the nth filter of the layer considered.
+     layer_output = model.get_layer(layer_name).output
+     loss = K.mean(layer_output[:, :, :, filter_index])
+     # Compute the gradient of the input picture wrt this loss
+     grads = K.gradients(loss, model.input)[0]
+     # Normalization trick: we normalize the gradient
+     grads /= (K.sqrt(K.mean(K.square(grads))) + 1e-5)
+     # This function returns the loss and grads given the input picture
+     iterate = K.function([model.input], [loss, grads])
+     # We start from a gray image with some noise
+     input_img_data = np.random.random((1, size, size, 3)) * 20 + 128.
+     # Run gradient ascent for 40 steps
+     step = 1.
+     for i in range(40):
+         loss_value, grads_value = iterate([input_img_data])
+         input_img_data += grads_value * step
+     img = input_img_data[0]
+     return deprocess_image(img)
 
 
 
@@ -653,6 +823,7 @@ heatmap = np.mean(conv_layer_output_value, axis=-1)
     contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     img2 = np.zeros([template.shape[0],template.shape[1]])
     """
+    """
     tic = time.time()
     i = 0
     #template = np.zeros(img2.shape).astype(np.uint8)
@@ -676,6 +847,7 @@ heatmap = np.mean(conv_layer_output_value, axis=-1)
     output_features = Random_Forest_Classifier.get_image_features(output, scaler)                                
     prediction = str(model.predict(output_features)[0])
         
+    """
     """
     tick = 0
     tic = time.time()
@@ -753,7 +925,7 @@ def create_training_data(img, closing, i):
     
 
 
-
+"""
 
 
 """        
@@ -888,4 +1060,6 @@ img3[img3 < 0] = 0
 
 img3 = img3.astype(np.uint8)
 """
+"""
 cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\rijweg_template.jpg',template)
+"""

@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 
 from sklearn.cluster import MeanShift
 
-
 #import rasterio
 import gdal
 from osgeo import gdalnumeric
@@ -72,7 +71,7 @@ it = list(range(0,10, 1))
 #def process_raster2template(x_block_size, y_block_size, model, skip, it):
 tic = time.time()
 i = 0
-raster = r'C:\Users\ericv\Desktop\Liederik/clipped.tif'
+raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357_clipped.tif'
 
 #srcArray = gdalnumeric.LoadFile(raster)
 ds = gdal.Open(raster)
@@ -96,9 +95,9 @@ for y in range(0, ysize, y_block_size):
                 cols = x_block_size
             else:
                 cols = xsize - x
-            b = np.array(ds.GetRasterBand(1).ReadAsArray(x, y, cols, rows)).astype(np.uint(8))
-            g = np.array(ds.GetRasterBand(2).ReadAsArray(x, y, cols, rows)).astype(np.uint(8))
-            r = np.array(ds.GetRasterBand(3).ReadAsArray(x, y, cols, rows)).astype(np.uint(8))
+            b = np.array(ds.GetRasterBand(1).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
+            g = np.array(ds.GetRasterBand(2).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
+            r = np.array(ds.GetRasterBand(3).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
             print('loaded img in memory')
             #img = np.zeros([b.shape[0],b.shape[1],3], np.uint8)
             #img[:,:,0] = b
@@ -109,19 +108,19 @@ for y in range(0, ysize, y_block_size):
             #array = array[0:3,:,:]
             #if img.mean() > 0:
             ExG2 = ExG(b,g,r)
-            cv2.imwrite(r'C:\Users\ericv\Desktop\rijweg2/ExG_test_'+str(blocks)+'.jpg',ExG)
+            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/ExG_test_'+str(blocks)+'.jpg',ExG2)
             ExG2 = None
             var = VARI(b,g,r)
-            cv2.imwrite(r'C:\Users\ericv\Desktop\rijweg2/VARI_test_'+str(blocks)+'.jpg',var)
+            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/VARI_test_'+str(blocks)+'.jpg',var)
             var = None
             gli = GLI(b,g,r)
-            cv2.imwrite(r'C:\Users\ericv\Desktop\rijweg2/GLI_test_'+str(blocks)+'.jpg',gli)
+            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/GLI_test_'+str(blocks)+'.jpg',gli)
             gli = None
             vndvi = visual_NDVI(b,g,r)
-            cv2.imwrite(r'C:\Users\ericv\Desktop\rijweg2/vndvi_test_'+str(blocks)+'.jpg',vndvi)
+            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/vndvi_test_'+str(blocks)+'.jpg',vndvi)
             vndvi = None
             rgbvi = rgbvi(b,g,r)
-            cv2.imwrite(r'C:\Users\ericv\Desktop\rijweg2/rgbvi_test_'+str(blocks)+'.jpg',rgbvi)
+            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/rgbvi_test_'+str(blocks)+'.jpg',rgbvi)
             rgbvi = None
             
             thresh, binary = cv2.threshold(ExG2, 0, 255, cv2.THRESH_OTSU)
