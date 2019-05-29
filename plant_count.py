@@ -281,6 +281,8 @@ y_block_size = 256
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Wever west\20190423\Orthomosaic/c01_verdonk-Wever west-20190423_clipped.tif'
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c07_hollandbean\Hendrik de Heer\20190513\1422\Orthomosaic/c07_hollandbean-Hendrik de Heer-201905131422_clipped.tif'
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Mammoet\20190521\1139\Orthomosaic/c01_verdonk-Mammoet-201905211139_clipped.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625_clipped.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 1\20190416\Orthomosaic/c01_verdonk-Rijweg stalling 1-20190416_clipped.tif'
 
 #list to create subsest of blocks
 it = list(range(0,100000, 1))

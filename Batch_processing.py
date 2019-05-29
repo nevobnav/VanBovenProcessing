@@ -32,6 +32,25 @@ import shutil
 import pandas as pd
 from append_df_to_excel_file import *
 
+def get_scan_information(chunk):
+    #sensor type (str)
+    sensor = chunk.sensors[0]
+    camera = chunk.cameras[1]
+    #flying altitude (float)
+    height_of_flight = camera.reference.location.z
+    ortho = chunk.orthomosaic
+    #gsd in meters (float)
+    gsd = ortho.resolution
+    #flight_datetime format: '2019:04:30 19:59:56'
+    flight_datetime = camera.photo.meta['Exif/DateTime']
+    #zoomlevel op basis van gsd, de grenzen zijn nu gekozen zodat 30/35 meter nog op zoomniveau 23 wordt getiled en eventuele lagere vluchten op 24/25
+    zoomlevel = 23
+    if gsd < 0.007 and gsd > 0.005:
+         zoomlevel = 24
+    if gsd < 0.005:
+        zoomlevel = 25
+    return (height_of_flight, gsd, zoomlevel, flight_datetime, sensor)
+
 def move_files_after_processing(photoList, output_folder):
     for photo in photoList:
         shutil.copy(photo, output_folder)
@@ -237,7 +256,9 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     processing_time = toc-tic
     logging.info("Ortho export took "+str(int(processing_time))+" seconds")
     doc.clear()
-    return timestr_save
+    
+    scan_information = get_scan_information(chunk)
+    return timestr_save, scan_information
 
 #Start of execution
 #get quality parameter from bat script
@@ -283,7 +304,7 @@ for proces_file in os.listdir(process_path):
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                timestr_save = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality)
+                timestr_save, scan_information = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
@@ -300,6 +321,10 @@ for proces_file in os.listdir(process_path):
                     columns = ['Flight date',	'Processing date',	'Start time',	'Customer Name',	'Plot Name',	'No of photos',	'Agisoft filename'])
                 #append info to processinglog.xlsx
                 append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
+                
+                #get different paramters related to the flight/scan and add to db:
+                height_of_flight, gsd, zoomlevel, flight_datetime, sensor = scan_information
+                
 
                 """
                 This part of code is redundant now

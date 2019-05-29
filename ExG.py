@@ -72,6 +72,7 @@ it = list(range(0,10, 1))
 tic = time.time()
 i = 0
 raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357_clipped.tif'
+raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625_clipped.tif'
 
 #srcArray = gdalnumeric.LoadFile(raster)
 ds = gdal.Open(raster)
