@@ -16,6 +16,8 @@ Created on Mon Mar  4 18:21:17 2019
 6. Export orthomosaic in folder of parcel
 7. Copy/cut images and move to archive
 """
+from vanbovendatabase.postgres_lib import *
+
 
 import os, re
 import glob
@@ -45,6 +47,7 @@ from functools import partial
 import pyproj
 from shapely.ops import transform
 
+
 #initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
@@ -66,6 +69,12 @@ min_nr_of_images_per_ha = 30
 #db connection info
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
+with open(config_file_path) as config_file:
+        config = json.load(config_file)
+host=config.get("DB_IP")
+db=config.get("DB_NAME")
+user=config.get("DB_USER")
+password=config.get("DB_PASSWORD")
 
 #steps_to_uploads is the number of folders starting from the root drive untill the uploads folder
 #for example: in the folder "E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
@@ -187,8 +196,9 @@ def get_image_coords(folder, img):
     coord = (dd_lon, dd_lat)
     return coord
 
+'''
 def connect(config_file_path, port):
-    '''Returns a connection and a metadata object'''
+    #Returns a connection and a metadata object
 
     with open(config_file_path) as config_file:
         config = json.load(config_file)
@@ -245,7 +255,7 @@ def get_plot_shape(plot_id, meta,con):
     res = con.execute(query)
     for result in res:
         output = result[0]
-    return output
+    return output'''
 
 def transform_geometry(geometry):
     project = partial(
@@ -301,8 +311,9 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
 
         #get plots of customer from DB
-        pk = get_customer_pk(customer_id,meta,con)
-        plot_names, plot_ids = get_customer_plots(customer_id, meta, con)
+        plot_ids, plot_names = get_customer_plots(customer_id, meta, con)
+        
+        #Fix this: first get plot ids, then get plot names.
 
         #check per plot for intersecting images and create a file for processing
         for i, plot_id in enumerate(plot_ids):
@@ -441,7 +452,7 @@ def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process)
     if new_finished_uploads is not None:
         files_to_process = CreateProcessingOrderUploads(new_finished_uploads)
-        con, meta = connect(config_file_path, port)
+        con, meta = connect(user, password, db, host=host, port=port)
         GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta)
 
 try:

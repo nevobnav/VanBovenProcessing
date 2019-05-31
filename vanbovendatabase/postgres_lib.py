@@ -42,55 +42,63 @@ def insert_new_scan(date, time, plot, meta, con, zoomlevel = 23, flight_altitude
     con.execute(insert_new_scan)
 
 def get_customer_pk(customer_name,meta,con):
+    customer_pk = None
     customers = meta.tables['portal_customer']
     query = select([customers.c.id])
     query = query.where(customers.c.customer_name == customer_name)
     res = con.execute(query)
     for result in res:
         customer_pk = result[0]
-    return customer_pk
+    if customer_pk:
+        return customer_pk
+    else:
+        return None
 
-def get_customer_name(customer_pk,meta,con):
-    customers = meta.tables['portal_customer']
-    query = select([customers.c.customer_name])
-    query = query.where(customers.c.id == customer_pk)
-    res = con.execute(query)
-    for result in res:
-        customer_pk = result[0]
-    return customer_pk
 
 def get_customer_plots(customer_name, meta, con):
     customer_pk = get_customer_pk(customer_name,meta,con)
+    plot_id = None
+    #First grab all parent_plot ids asociated with this customer_pk
+    parent_plots = meta.tables['portal_parent_plot']
+    query= select([parent_plots.c.id,parent_plots.c.name])
+    query = query.where(parent_plots.c.customer_id == customer_pk)
+    res = con.execute(query).fetchall()
+    parent_plot_ids = [x[0] for x in res]
+    parent_plot_names = [x[1] for x in res]
+    
+    #Now build list of the plots themselves with these parent_plots:
     plots = meta.tables['portal_plot']
-    query= select([plots.c.id])
-    query = query.where(plots.c.customer_id == customer_pk)
-    res = con.execute(query)
     plot_ids = []
-    for result in res:
-        new_val = result[0]
-        plot_ids.append(new_val)
-    return plot_ids
+    for parent_plot_id in parent_plot_ids:
+        query= select([plots.c.id])
+        query = query.where(plots.c.parent_plot_id == parent_plot_id)
+        res = con.execute(query).fetchall()
+        plot_ids.append([x[0] for x in res][0])
+    return plot_ids, parent_plot_names
 
-def get_customer_plot_names(customer_name, meta, con):
-    customer_pk = get_customer_pk(customer_name,meta,con)
-    plots = meta.tables['portal_plot']
-    query= select([plots.c.id])
-    query = query.where(plots.c.customer_id == customer_pk)
-    res = con.execute(query)
-    plot_names = []
-    for result in res:
-        new_val = result[0]
-        plot_names.append(new_val)
-    return plot_names
 
 def get_plot_customer(plotname, meta, con):
-    plots = meta.tables['portal_plot']
-    query= select([plots.c.customer_name])
-    query = query.where(plots.c.name == plotname)
-    res = con.execute(query)
-    for result in res:
-        customer_name = result[0]
-    return customer_name
+    parent_plots = meta.tables['portal_parent_plot']
+    query= select([parent_plots.c.customer_id])
+    query = query.where(parent_plots.c.name == plotname)
+    try:
+        customer_id = con.execute(query).first()[0]
+        customer_name = get_customer_name(customer_id,meta,con)
+        return customer_name
+    except:
+        return []
+
+
+def get_customer_name(pk,meta,con):
+    customers = meta.tables['portal_customer']
+    query= select([customers.c.customer_name])
+    query = query.where(customers.c.id == pk)
+    try:
+        res = con.execute(query).first()[0]
+    except:
+        res = []
+    return res
+
 
 def get_plot_shape(plot, meta,con):
     try:
@@ -108,13 +116,23 @@ def get_plot_shape(plot, meta,con):
     return output
 
 def get_plot_id(plot_name, meta,con):
-    plots = meta.tables['portal_plot']
-    query= select([plots.c.id])
-    query = query.where(plots.c.name == plot_name)
+    #get parent_plot_id
+    parent_plots = meta.tables['portal_parent_plot']
+    query= select([parent_plots.c.id])
+    query = query.where(parent_plots.c.name == plot_name)
     res = con.execute(query)
     for result in res:
-        output = result[0]
-    return output
+        parent_plot_id = result[0]
+
+    #determine plot_id from paren_plot_id (reverse child, sucks):
+    plots = meta.tables['portal_plot']
+    query= select([plots.c.id])
+    query = query.where(plots.c.parent_plot_id == parent_plot_id)
+    res = con.execute(query).fetchall()
+    plot_id = res[0][0]
+    return plot_id
+    
+
 
 def get_scans_by_date(date, meta,con):
     scans = meta.tables['portal_scan']
