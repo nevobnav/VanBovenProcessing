@@ -213,10 +213,10 @@ kmeans_init = np.array([shadow_init, light_init, green_init])
 #maak initiële waarden voor clustering
 cover_lab = cv2.cvtColor(np.array([[[215,198,190]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 cover_init = np.array(cover_lab[0,0,1:3], dtype = np.uint8)
-background_init = cv2.cvtColor(np.array([[[120,125,160]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
+background_init = cv2.cvtColor(np.array([[[120,125,130]]]).astype(np.uint8), cv2.COLOR_BGR2LAB) # as sampled from tif file
 background_init = np.array(background_init[0,0,1:3])
 #light_lab = cv2.cvtColor(np.array([[[220,220,220]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
-green_lab = cv2.cvtColor(np.array([[[100,190,150]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
+green_lab = cv2.cvtColor(np.array([[[100,190,120]]]).astype(np.uint8), cv2.COLOR_BGR2LAB)
 green_init = np.array(green_lab[0,0,1:3])
 #convert to np array
 #shadow_init = np.array(shadow_lab[0,0,1:3])
@@ -271,24 +271,36 @@ min_plant_size = 16
 max_plant_size = 525
 
 #set block_size
-#x_block_size = 4096
-#y_block_size = 4096
+x_block_size = 4096
+y_block_size = 4096
 
-x_block_size = 256
-y_block_size = 256
+#x_block_size = 256
+#y_block_size = 256
 
 #img_path
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Wever west\20190423\Orthomosaic/c01_verdonk-Wever west-20190423_clipped.tif'
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c07_hollandbean\Hendrik de Heer\20190513\1422\Orthomosaic/c07_hollandbean-Hendrik de Heer-201905131422_clipped.tif'
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Mammoet\20190521\1139\Orthomosaic/c01_verdonk-Mammoet-201905211139_clipped.tif'
-img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625_clipped.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625.tif'
 img_path = r'E:\VanBovenDrive\VanBoven MT\Archive\c01_verdonk\Rijweg stalling 1\20190416\Orthomosaic/c01_verdonk-Rijweg stalling 1-20190416_clipped.tif'
+img_path = r'E:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190416/file:///E:/VanBovenDrive/VanBoven MT/Opnames/c04_verdegaal/20190416/20190416_c0_testuser_img613.JPG'
 
 #list to create subsest of blocks
-it = list(range(0,100000, 1))
+it = list(range(0,200, 1))
 #skip = True if you do not want to process each block but you want to process the entire image
 process_full_image = True
 # Function to read the raster as arrays for the chosen block size.
+"""
+binnendijk links specifiek
+x = 15000
+y = 5000
+rows = 7500
+cols = 10000 
+cluster centres
+array([[125.49593976, 123.61450933],
+       [116.82479338, 129.11902273],
+       [127.55709537, 121.70610933]])
+"""
 def count_plants_in_image(x_block_size, y_block_size, model, process_full_image, it, img_path):    
     tic = time.time()
     i = 0
@@ -361,8 +373,8 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     b2_flat = b2.flatten()
                     Classificatie_Lab = np.ma.column_stack((a_flat, b2_flat))
                     #perform kmeans clustering
-                    kmeans = KMeans(init = kmeans_init, n_jobs = -1, max_iter = 25, n_clusters = 3, verbose = 0)
-                    kmeans.fit(Classificatie_Lab)
+                    #kmeans = KMeans(init = kmeans_init, n_jobs = -1, max_iter = 35, n_clusters = 3, verbose = 0)
+                    #kmeans.fit(Classificatie_Lab)
                     y_kmeans = kmeans.predict(Classificatie_Lab)
                     #Get plants
                     y_kmeans[y_kmeans == 0] = 0
@@ -419,24 +431,26 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                                         #continue
                                     #img[z_row*d:z_row*d+d, z_col*d:z_col*d+d] = np.dstack((binary, binary, binary)) 
                     closing = img
-                    
+                    """
                     if process_full_image == False:
-                        contours, hierarchy = cv2.findContours(closing, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+                        contours, hierarchy = cv2.findContours(template, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
                         #template = np.zeros(img2.shape).astype(np.uint8)
                         for cnt in contours:
                             i+=1
                             ar = cv2.contourArea(cnt)
-                            if (ar > min_plant_size) & (ar < max_plant_size):    
+                            #if (ar > min_plant_size) & (ar < max_plant_size):  
+                            if (ar < 1300) & (ar > 2):
+                                
                                 M = cv2.moments(cnt)
                                 try:
                                     cx = int(M['m10']/M['m00'])
                                     cy = int(M['m01']/M['m00'])
                                 except:
-                                    print('0')
-                                bbox = cv2.boundingRect(cnt)
+                                    continue
+                                #bbox = cv2.boundingRect(cnt)
                                 #x,y,w,h = cv2.boundingRect(cnt)
-                                output = img[bbox[1]-5: bbox[1]+bbox[3]+5, bbox[0]-5:bbox[0]+bbox[2]+5]
-                                if output.shape[0] * output.shape[1] > 0:
+                                #output = img[bbox[1]-5: bbox[1]+bbox[3]+5, bbox[0]-5:bbox[0]+bbox[2]+5]
+                                #if output.shape[0] * output.shape[1] > 0:
                                     #prediction = model.predict(output)
                                     #output_features = Random_Forest_Classifier.get_image_features(output, scaler)                                
                                     #prediction = str(model.predict(output_features)[0])
@@ -448,8 +462,8 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                                         #cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
                                         #cv2.drawMarker(img, (cx,cy), (255,0,0), markerType = cv2.MARKER_STAR, markerSize = 5, thickness = 1)
                                         #cv2.drawContours(img, cnt,-1, (255, 255, 255),-1)
-                                        #cv2.drawMarker(plant_contours_temp, (cx,cy), (255,0,0), markerType = cv2.MARKER_STAR, markerSize = 5, thickness = 1)
-                                    cv2.drawContours(plant_contours_temp, [cnt],-1, (255, 255, 255),-1)
+                                        #cv2.drawMarker(output, (cx,cy), (255,0,0), markerType = cv2.MARKER_STAR, markerSize = 3, thickness = 1)
+                                cv2.drawContours(output, [cnt],-1, (0, 0, 255),2)
                                     #else:
                                      #   continue
                                         #cv2.drawMarker(img, (cx,cy), (0,0,255), cv2.MARKER_STAR, markerSize = 5, thickness = 1)
@@ -457,11 +471,12 @@ def count_plants_in_image(x_block_size, y_block_size, model, process_full_image,
                     # nr_of_img = create_training_data(img, closing, i)
                     #plant_contours[y:y+rows, x:x+cols] = plant_contours[y:y+rows, x:x+cols] + plant_contours_temp                    
                     #write_plants2shp(img_path, plant_contours, shp_dir, shp_name)
-                    """                    
+                                       
                     template[y:y+rows, x:x+cols] = template[y:y+rows, x:x+cols] + closing
                     print('processing of block ' + str(blocks) + ' finished')
-                    template_name = os.path.basename(img_path)[:-4].replace(' ', '_')
-    cv2.imwrite(r'E:\400 Data analysis\410 Plant count\test_results\mask_'+template_name+'.png',template)     
+    template_name = os.path.basename(img_path)[:-4].replace(' ', '_')
+    cv2.imwrite(r'F:\400 Data analysis\410 Plant count\c03_termote\Binnendijk_links\mask_'+template_name+'2.png',template)     
+    cv2.imwrite(r'F:\400 Data analysis\410 Plant count\c03_termote\Binnendijk_links/Cichorei_contouren_filtered.jpg',output)
     #plant_contours[plant_contours > 0] = 255
     toc = time.time()
     print("processing of blocks took "+ str(toc - tic)+" seconds")

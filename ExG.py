@@ -72,8 +72,10 @@ it = list(range(0,10, 1))
 tic = time.time()
 i = 0
 raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357_clipped.tif'
-raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625_clipped.tif'
+raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625.tif'
 
+
+output_path = r'F:\400 Data analysis\410 Plant count\c03_termote\Binnendijk_links'
 #srcArray = gdalnumeric.LoadFile(raster)
 ds = gdal.Open(raster)
 band = ds.GetRasterBand(1)
@@ -100,32 +102,42 @@ for y in range(0, ysize, y_block_size):
             g = np.array(ds.GetRasterBand(2).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
             r = np.array(ds.GetRasterBand(3).ReadAsArray(x, y, cols, rows), dtype = np.uint(8))
             print('loaded img in memory')
-            #img = np.zeros([b.shape[0],b.shape[1],3], np.uint8)
-            #img[:,:,0] = b
-            #img[:,:,1] = g
-            #img[:,:,2] = r
+            img = np.zeros([b.shape[0],b.shape[1],3], np.uint8)
+            img[:,:,0] = b
+            img[:,:,1] = g
+            img[:,:,2] = r
             #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\blocks\rijwegstalling2_blocks_'+str(x)+'-'+str(y)+'.jpg',img)     
             #array = ds.ReadAsArray(x, y, cols, rows)
             #array = array[0:3,:,:]
             #if img.mean() > 0:
             ExG2 = ExG(b,g,r)
-            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/ExG_test_'+str(blocks)+'.jpg',ExG2)
+            cv2.imwrite(output_path + '/ExG_'+str(blocks)+'.jpg',ExG2)
             ExG2 = None
             var = VARI(b,g,r)
-            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/VARI_test_'+str(blocks)+'.jpg',var)
+            cv2.imwrite(output_path + '/VARI_'+str(blocks)+'.jpg',var)
             var = None
             gli = GLI(b,g,r)
-            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/GLI_test_'+str(blocks)+'.jpg',gli)
+            cv2.imwrite(output_path + '/GLI_'+str(blocks)+'.jpg',gli)
             gli = None
             vndvi = visual_NDVI(b,g,r)
-            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/vndvi_test_'+str(blocks)+'.jpg',vndvi)
+            cv2.imwrite(output_path + '/vndvi_'+str(blocks)+'.jpg',vndvi)
             vndvi = None
             rgbvi = rgbvi(b,g,r)
-            cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c08_biobrass\AZ74/rgbvi_test_'+str(blocks)+'.jpg',rgbvi)
+            cv2.imwrite(output_path + '/rgbvi_'+str(blocks)+'.jpg',rgbvi)
             rgbvi = None
             
             thresh, binary = cv2.threshold(ExG2, 0, 255, cv2.THRESH_OTSU)
-            cv2.imwrite(r'C:\Users\ericv\Desktop\rijweg2\otsu thresholding.jpg', binary)
+            cv2.imwrite(output_path + '\otsu_ExG.jpg', binary)
+
+            thresh, binary = cv2.threshold(gli, 0, 255, cv2.THRESH_OTSU)
+            thresh2, binary = cv2.threshold(gli, thresh+10, 255, cv2.THRESH_BINARY)
+            cv2.imwrite(output_path + '\otsu_gli.jpg', binary)
+
+cielab = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)
+cv2.imwrite(output_path + '\cielab.jpg', cielab)
+
+
+
 
 #testing of meanshift
           

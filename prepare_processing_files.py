@@ -52,7 +52,8 @@ from shapely.ops import transform
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
-logging.basicConfig(filename = r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + str(timestr) + "_processing_files_log_file" +  ".log",level=logging.DEBUG)
+logging.basicConfig(filename = r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + str(timestr) \
++ "_processing_files_log_file" +  ".log",level=logging.DEBUG)
 
 
 # variables
@@ -269,6 +270,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
     #loop through folders to process
     for z in range(len(files_to_process)):
         folder = files_to_process['Path'].iloc[z]
+        upload_time = files_to_process['Time_finished_uploading'].iloc[z]
+        image_count = files_to_process['Image_count'].iloc[z]
         dirs = folder.split("\\")
         #Get the customer_id
         get_customer_name = [re.search('c' + '\d+' + '_' + '.*', subdir) for subdir in dirs]
@@ -312,7 +315,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
 
         #get plots of customer from DB
         plot_ids, plot_names = get_customer_plots(customer_id, meta, con)
-        
+
         #Fix this: first get plot ids, then get plot names.
 
         #check per plot for intersecting images and create a file for processing
@@ -350,17 +353,31 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     # use these three lines to do the replacement
                     #rep = dict((re.escape(k), v) for k, v in rep.items())
                     #pattern = re.compile("|".join(rep.keys()))
-                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#, os.path.basename(x)))
+                    #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#\
+                    #, os.path.basename(x)))
                     #create txt file for processing
                 if len(multiple_outputs) > 0:
                     for output in multiple_outputs:
                         time.sleep(2)
+                        #register this processing job as a Scan in database:
+                        time_of_recording = output.DateTime.iloc[1].time()
+                        date_of_recording = output.DateTime.iloc[1].date()
+                        preprocess_time = datetime.datetime.now()
+                        no_of_imgs = len(output)
+                        new_scan_id = insert_new_scan(meta, con, date_of_recording, time_of_recording, plot_name, no_of_images = no_of_imgs, upload_time=upload_time,
+                                            preprocess_time=preprocess_time, live=False)
+
+                        #Create logoutput and to_process file
                         timestr = time.strftime("%Y%m%d-%H%M%S")
                         #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                        output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
-                        with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + str(plot_name)+".txt", 'a') as f:
-                            f.write(str(plot_name))
-                    #output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
+                        output[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + \
+                        str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
+                        with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + \
+                        str(plot_name)+".txt", 'a') as f:
+                            f.write(str(plot_name+'\n'))
+                            f.write('scan.id: '+str(new_scan_id))
+                    #output[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' +\
+                    # str(plot_name)+".txt", sep = ',', header = False, index = False)
         image_matches = total_upload.select_dtypes(np.bool)
         unknown_plot = pd.DataFrame({'Plot_known' : image_matches.any(axis=1, bool_only = True)})
         unknown_plot = unknown_plot[unknown_plot['Plot_known'] == False]
@@ -372,7 +389,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             #rep = dict((re.escape(k), v) for k, v in rep.items())
             #pattern = re.compile("|".join(rep.keys()))
             #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-            unknown_plot[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', header = False, index = False)
+            unknown_plot[['Input_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', \
+            header = False, index = False)
             with open(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_unknown_plot.txt', 'a') as f:
                 f.write('unknown_plot')
         for plot_name in plot_names:
@@ -382,9 +400,11 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         total_upload['Time_after_previous'] = total_upload['DateTime'].diff().astype('timedelta64[s]')
         total_upload['Time_before_next'] = total_upload['DateTime'].shift(-1).diff().astype('timedelta64[s]')
         total_upload['Groupby_nr'] = np.where((abs(total_upload['Altitude_difference']) > 18),1,0).cumsum()
+
+
         total_upload.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) +"_image_groups.csv")
 
-    """
+'''
         #check for images
         #Loop through images per flight
         for j in range(images['Groupby_nr'].max()):
@@ -411,7 +431,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                         output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
                         #create txt file for processing
                         timestr = time.strftime("%Y%m%d-%H%M%S")
-                        output.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_id)+ "_group"+str(j)+".txt", sep = ',', header = False, index = False)
+                        output.to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' + str(plot_id)+ "_group"+str(j)+".txt", sep = ',',\
+                         header = False, index = False)
                     else:
                         #if nr of images within plot is not enough for processing, the output column value is put back to False, as if the images do not intersect a plot
                         flight[str(plot_id)].loc[flight[str(plot_id)] == True] = False
@@ -429,7 +450,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
                     unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                    unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_unknown_plot.txt', sep = ',', header = False, index = False)
+                    unknown_plot[['Input_folder','Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+\
+                    '_unknown_plot.txt', sep = ',', header = False, index = False)
                 else:
                     #if not, create a file to move/remove images from recording folder on drive
                     rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
@@ -437,7 +459,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     rep = dict((re.escape(k), v) for k, v in rep.items())
                     pattern = re.compile("|".join(rep.keys()))
                     unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_not_enough_images.txt', sep = ',', header = False, index = False)
+                    unknown_plot[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+\
+                    '_not_enough_images.txt', sep = ',', header = False, index = False)
             else:
                 #create a file to move images from recordings folder on drive
                 rep = {"Opnames": "Archive", str(customer_id): str(customer_id+"\\random_images")}
@@ -445,8 +468,10 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 rep = dict((re.escape(k), v) for k, v in rep.items())
                 pattern = re.compile("|".join(rep.keys()))
                 flight['Output_folder'] = flight['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+'_random_images.txt', sep = ',', header = False, index = False)
-"""
+                flight[['Input_folder', 'Output_folder']].to_csv(r"E:\VanBovenDrive\VanBoven MT\Processing\To_move/" + timestr + '_'+ str(customer_id) + "_group"+str(j)+\
+                '_random_images.txt', sep = ',', header = False, index = False)
+
+'''
 
 def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process):
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process)
@@ -454,6 +479,7 @@ def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_
         files_to_process = CreateProcessingOrderUploads(new_finished_uploads)
         con, meta = connect(user, password, db, host=host, port=port)
         GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta)
+        con.dispose()
 
 try:
     processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process)

@@ -12,7 +12,7 @@ import shutil
 import Metashape
 
 metashape_path = r'E:\Metashape'
-days_to_store = 31
+days_to_store = 14
 
 def find_old_psx_files(metashape_path, days_to_store):
     today = datetime.date.today()

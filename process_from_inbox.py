@@ -20,7 +20,7 @@ import datetime
 import select
 
 #23 is default
-zoomlevel = str(sys.argv[1])
+zoomlevel = 23
 
 ## FUNCTIONS ##
 
@@ -145,6 +145,7 @@ for file in files:
     tif_count +=1
     this_customer_name,this_plot_name,this_datetime = file.split('-')
     this_datetime = this_datetime.split('.')[0]
+    this_datetime = this_datetime.split('(')[0] #Splits of brackets for duplicates if present
     this_date = this_datetime[0:-4]
     this_time = this_datetime[-4::]
     dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file}
@@ -172,13 +173,22 @@ for ortho in ortho_que:
     filename = ortho['filename']
     logging.info('Starting processing of {}\n'.format(filename))
 
+    #Fetch zoomlevel from database entry (zoomlevel established in Batch_Processing)
+    scan_data = get_scan(con, meta, date=flight_date, time=flight_time, plot=plot_name)
+    logging.info('      Found scan details: {}'.format(str(scan_data)))
+    try :
+        scan_id, zoomlevel = scan_data[0]['scan_id'], scan_data[0]['zoomlevel']
+    except:
+        logging.info('      No database entry with date {}, time {} and plot {}. Quiting.'.format(flight_date, flight_time, plot_name))
+        continue
+
     #Check for possible duplicate work:
     ortho_archive_target = os.path.join(ortho_archive_destination,customer_name,plot_name,flight_date,flight_time,'Orthomosaic')
     if os.path.isfile(ortho_archive_target): #This needs to be tested for the 'break'
         #File already exists, quiting early and logging duplicate
         logging.info('    Ortho is already present in archive. Exited after {} seconds\n'\
         .format(round(time.time() - start_ortho_time)))
-        break
+        continue
 
     #clip ortho to plot shape:
     logging.info('    Clipping {}...\n'.format(filename))
@@ -202,7 +212,7 @@ for ortho in ortho_que:
         newtile = True
     os.mkdir(output_folder)
     # batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
-    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ zoomlevel +' -w none -o tms'
+    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
     #Would be great if we can use the direct python funciton. This requires either building an options args element, or manually fixing gdal2tiles.py
     #argv= gdal.GeneralCmdLineProcessor(['"'+str(input_file)+'"','"'+str(output_folder)+'"','--processes' ,'14' ,'-z', '16-23', '-w' ,'none'])
     #input_file, output_folder, options = process_args(argv[1:])
@@ -297,36 +307,12 @@ for ortho in ortho_que:
     format(filename,round((start_ortho_time-end_ortho_time)/60)))
 
     scan_time = datetime.datetime.strptime(flight_time, '%H%M').time()
-    insert_new_scan(flight_date,scan_time, plot_name, meta, con)
-    logging.info("Added scan {}-{} to plot {}".format(flight_date,flight_time,plot_name))
 
-con.connect().close()
+    #Update scan database with tiling time and being live
+    update_dict = {'live':True,'tiles':datetime.datetime.now()}
+    update_scan(con,meta,update_dict,scan_id = scan_id)
+    logging.info("Updated scan {}-{} of plot {}".format(flight_date,flight_time,plot_name))
+
+con.dispose()
 print('Reached end of script')
 logging.info('Reached end of script')
-
-
-
-
-
-#Get all folders in dir:
-# import os
-# folder = os.getcwd()
-# def get_dirlist(rootdir):
-#     dirlist = []
-#     slashes = folder.count('/')
-#     with os.scandir(rootdir) as rit:
-#         for entry in rit:
-#             if entry.path.count('/') <= (slashes +2 ) and not entry.name.startswith('.') and entry.is_dir():
-#                 dirlist.append(entry.path)
-#                 dirlist += get_dirlist(entry.path)
-#     dirlist.sort() # Optional, in case you want sorted directory names
-#     return dirlist
-# dirlist = get_dirlist(folder)
-# for sf in dirlist:
-#     if os.path.basename(sf)[0]!= '.' and os.path.basename(sf)[0:4] == '2019' :
-#         path = os.path.split(sf)[0]
-#         fname = os.path.split(sf)[1]
-#         new_fname = fname+'0200'
-#         new_sf = path + '/' + new_fname
-#         bashcommand = "mv '{}' '{}'".format(sf,new_sf)
-#         os.system(bashcommand)

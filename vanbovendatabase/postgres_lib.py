@@ -2,7 +2,7 @@
 # testing github
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine, MetaData, Integer, ForeignKey, DateTime, Column
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -25,7 +25,9 @@ def connect(user, password, db, host='localhost', port=5432):
 
     return con, meta
 
-def insert_new_scan(date, time, plot, meta, con, zoomlevel = 23, flight_altitude=35):
+
+def insert_new_scan(meta, con, date, time, plot, no_of_images = 0, zoomlevel = 23, flight_altitude=35, sensor='unknown', quality='MED', upload_time=None,
+                    preprocess_time=None, ortho_time = None, tiles_time = None, live=False):
     try:
         int(plot)
         plot_id = plot
@@ -34,12 +36,80 @@ def insert_new_scan(date, time, plot, meta, con, zoomlevel = 23, flight_altitude
     new_scan = {'date': date,
                 'time': time,
                 'plot_id': plot_id,
+                'no_imgs': no_of_images,
                 'zoomlevel': zoomlevel,
-                'flight_altitude': flight_altitude
+                'flight_altitude': flight_altitude,
+                'sensor': sensor,
+                'quality': quality,
+                'upload': upload_time,
+                'preprocess': preprocess_time,
+                'ortho': ortho_time,
+                'tiles': tiles_time,
+                'live': live
                 }
     scans = meta.tables['portal_scan']
     insert_new_scan = scans.insert().values(new_scan)
     con.execute(insert_new_scan)
+
+    query= select([scans.c.id])
+    query = query.where(scans.c.date == date)
+    query = query.where(scans.c.time == time)
+    query = query.where(scans.c.plot_id == plot_id)
+    res = con.execute(query)
+    new_scan_id = res.fetchall()[0][0]
+
+    return new_scan_id
+
+def update_scan(con,meta,update_dict,plot_id=None,date=None,time=None,scan_id=None):
+    #Usage example: update_scan(con,meta,'Wever oost','2019-03-21','02:00:00',{'zoomlevel':23})
+    scans = meta.tables['portal_scan']
+    if scan_id:
+        update_me = scans.update().\
+            where(scans.c.id == scan_id).\
+            values(update_dict)
+    else:
+        if type(plot_id) is str:
+            plot_id = get_plot_id(plot_id,meta,con)
+
+        update_me = scans.update().\
+            where(scans.c.plot_id == plot_id).\
+            where(scans.c.date == date).\
+            where(scans.c.time == time).\
+            values(update_dict)
+    response = con.execute(update_me)
+    return
+
+def get_scan(con, meta, date=None, time=None, plot=None, scan_id=None):
+    scans = meta.tables['portal_scan']
+
+    query = select(['*'])
+    if scan_id:
+        query = query.where(scans.c.id == scan_id)
+    else:
+        if type(plot) is str:
+            plot = get_plot_id(plot,meta,con)
+        #check for time within 5 minute timeframe
+        time_object = datetime.strptime(time, '%H%M')
+        delta = timedelta(minutes = 5)
+
+        time_max = (time_object+delta).time()
+        time_min = (time_object-delta).time()
+
+        query = query.where(scans.c.date == date)
+        query = query.where(scans.c.time >= time_min)
+        query = query.where(scans.c.time <= time_max)
+        query = query.where(scans.c.plot_id == plot)
+
+    res = con.execute(query)
+
+    result_dicts = []
+    for row in res.fetchall():
+        res_line = {'scan_id': row[0], 'date':row[1], 'plot_id':row[2], 'time':row[3], 'zoomlevel':row[4],
+                    'flight_altitude':row[5], 'live':row[6], 'no_imgs':row[7], 'ortho':row[8],
+                   'precprocess':row[9], 'quality':row[10], 'sensor':row[11], 'tiles':row[12], 'upload':row[13]}
+        result_dicts.append(res_line)
+
+    return result_dicts
 
 def get_customer_pk(customer_name,meta,con):
     customer_pk = None
@@ -65,7 +135,7 @@ def get_customer_plots(customer_name, meta, con):
     res = con.execute(query).fetchall()
     parent_plot_ids = [x[0] for x in res]
     parent_plot_names = [x[1] for x in res]
-    
+
     #Now build list of the plots themselves with these parent_plots:
     plots = meta.tables['portal_plot']
     plot_ids = []
@@ -131,7 +201,7 @@ def get_plot_id(plot_name, meta,con):
     res = con.execute(query).fetchall()
     plot_id = res[0][0]
     return plot_id
-    
+
 
 
 def get_scans_by_date(date, meta,con):

@@ -31,6 +31,17 @@ import logging
 import shutil
 import pandas as pd
 from append_df_to_excel_file import *
+from vanbovendatabase.postgres_lib import *
+import datetime
+
+config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
+port = 5432
+with open(config_file_path) as config_file:
+        config = json.load(config_file)
+host=config.get("DB_IP")
+db=config.get("DB_NAME")
+user=config.get("DB_USER")
+password=config.get("DB_PASSWORD")
 
 def get_scan_information(chunk):
     #sensor type (str)
@@ -77,7 +88,7 @@ def get_first_img_time(chunk):
     img_time = cam_datetime[11:16].replace(':','')
     return img_time
 
-def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality):
+def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality, scan_time):
     #if folder.endswith('Perceel1'): ook een optie afhankelijk van naamgeving mappen
     #path = folder
     if not os.path.exists(metashape_processing_folder):
@@ -239,13 +250,14 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
         #os.makedirs(temp_processing_folder + "\\Orthomosaic\\")
 
     #get time of first image
-    img_time = get_first_img_time(chunk)
+    # img_time = get_first_img_time(chunk)
 
     timestr = time.strftime("%H%M%S")
+
     #zorg voor mooie naamgeving + output
     tic = time.clock()
     #check if output allready exists and rename if so
-    ortho_out = ortho_out[:-4]+str(img_time)+'.tif'
+    ortho_out = ortho_out[:-4]+scan_time.strftime("%H%M")+'.tif'
     name_it = 1
     while os.path.isfile(str(ortho_out)) == True:
         ortho_out = ortho_out[:-4] + '('+str(name_it)+').tif'
@@ -256,7 +268,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     processing_time = toc-tic
     logging.info("Ortho export took "+str(int(processing_time))+" seconds")
     doc.clear()
-    
+
     scan_information = get_scan_information(chunk)
     return timestr_save, scan_information
 
@@ -281,6 +293,10 @@ temp_processing_folder = r'E:\Metashape'
 #keep track of processing
 nr_of_plots = 0
 nr_of_images = 0
+
+#Create DB connection:
+con, meta = connect(user, password, db, host=host, port=port)
+
 #iterate through the folder with processing txt files
 for proces_file in os.listdir(process_path):
     if proces_file.endswith('.txt'):
@@ -290,8 +306,14 @@ for proces_file in os.listdir(process_path):
                 temp = image_file.read().splitlines()
                 #temp = image_file.read().replace('"', '').splitlines()
             #photoList = zip(*(s.split(",") for s in temp))
-            photoList = temp[:-1]
-            plot_id = temp[-1]
+            photoList = temp[:-2]
+            plot_id = temp[-2]
+            scan_id = temp[-1][temp[-1].find(':')+2::] #This is the database primary key
+
+            scan_data = get_scan(con, meta, scan_id=scan_id)
+            scan_time = scan_data[0]['time']
+
+
             #select the folder of the parcel in the archive map
             customer_id = os.path.basename(os.path.dirname(os.path.dirname(photoList[0])))
             day_of_recording = os.path.basename(os.path.dirname(photoList[0]))
@@ -304,7 +326,7 @@ for proces_file in os.listdir(process_path):
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                timestr_save, scan_information = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality)
+                timestr_save, scan_information = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality, scan_time)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
@@ -321,10 +343,19 @@ for proces_file in os.listdir(process_path):
                     columns = ['Flight date',	'Processing date',	'Start time',	'Customer Name',	'Plot Name',	'No of photos',	'Agisoft filename'])
                 #append info to processinglog.xlsx
                 append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
-                
+
+
+
                 #get different paramters related to the flight/scan and add to db:
                 height_of_flight, gsd, zoomlevel, flight_datetime, sensor = scan_information
-                
+                sensor_label = sensor.label
+                ortho_time = datetime.datetime.now()
+                update_dict = {'ortho':ortho_time,'flight_altitude':int(height_of_flight),'zoomlevel':zoomlevel, 'sensor':sensor_label}
+                logging.info("Update dict: {}".format(str(update_dict)))
+                logging.info("Scan id equals: {}".format(scan_id))
+                update_scan(con,meta,update_dict,scan_id=scan_id)
+
+                con.dispose()  #Close down connection
 
                 """
                 This part of code is redundant now
