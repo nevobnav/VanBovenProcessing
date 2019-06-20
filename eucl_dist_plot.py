@@ -17,7 +17,7 @@ from sklearn.neighbors import NearestNeighbors
 #max number of pixels in image is restricted, in order to open big orthos it has to be modified
 Image.MAX_IMAGE_PIXELS = 3000000000      
 
-template = np.array(Image.open(r'E:\400 Data analysis\410 Plant count\test_results/mask_c01_verdonk-Rijweg_stalling_1-20190416_clipped.png'), dtype = np.uint8)
+template = np.array(Image.open(r'F:\700 Georeferencing\AZ74 georeferencing\plant_count/c08_biobrass-AZ74-201905131357_no_closing.jpg'), dtype = np.uint8)
 zeros = np.zeros((template.shape[0], template.shape[1]), dtype = np.uint8)
 
 #Get contours of features
@@ -41,9 +41,9 @@ distances, indices = knn.kneighbors(X)
 #mask out points not matching criteria
 mask = np.zeros((distances.shape[0]))
 for i in range(distances.shape[0]):
-    mask[i]=(distances[i,1] > 28 and distances[i, 2] < 62 and distances[i, 3] > 65 and distances[i,4] < 92)
+    mask[i]=(distances[i,1] > 28 and distances[i, 2] < 62 and distances[i, 3] > 65 and distances[i,4] < 99)
 
-it = list(range(0,2, 1))
+it = list(range(0,1, 1))
 for j in it:
     #draw points matching criteria
     points = X[np.where(mask == 1)]
@@ -68,8 +68,8 @@ contours, hierarchy = cv2.findContours(dilate, cv2.RETR_EXTERNAL , cv2.CHAIN_APP
 #closing = cv2.morphologyEx(zeros, cv2.MORPH_CLOSE, kernel)
 cv2.drawContours(zeros, [contours[0]],-1, (255),-1)
 
-cv2.imwrite(r'E:\400 Data analysis\410 Plant count\eucl_dist_zeros4.jpg',zeros)
-cv2.imwrite(r'E:\400 Data analysis\410 Plant count\eucl_dist_dilate4.jpg',dilate)
+cv2.imwrite(r'F:\700 Georeferencing\AZ74 georeferencing\clipped_imagery/eucl_dist_zeros4.jpg',zeros)
+cv2.imwrite(r'F:\700 Georeferencing\AZ74 georeferencing\clipped_imagery/eucl_dist_dilate4.jpg',dilate)
 
 
 
