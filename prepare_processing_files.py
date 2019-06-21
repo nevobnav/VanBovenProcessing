@@ -47,7 +47,6 @@ from functools import partial
 import pyproj
 from shapely.ops import transform
 
-
 #initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
@@ -338,8 +337,35 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 output['Time_after_previous'] = output['DateTime'].diff().astype('timedelta64[s]')
                 output['Time_before_next'] = output['DateTime'].shift(-1).diff().astype('timedelta64[s]')
                 output['Groupby_nr'] = np.where((abs(output['Altitude_difference']) > 18),1,0).cumsum()
+                output.index = output['Groupby_nr']
                 #Loop through clustered_images per plot
                 multiple_outputs = []
+                
+                #for j in range(output.index.max()+1):
+                group_df = pd.DataFrame()
+                groups = output.groupby(output.index)
+                group_df['mean_alt'] = groups.Altitude.mean()#.apply(lambda x:int(x))
+                group_df['Image_count'] = groups.Image_names.count()
+                group_df['Time_before_next'] = groups.Time_before_next.max()
+                group_df['Time_after_previous'] = groups.Time_after_previous.max()
+                group_df.drop(group_df[group_df['Image_count'] < 10].index, inplace = True)
+                group_df['Alt_diff'] = group_df.mean_alt.diff()
+                group_list = np.zeros((len(group_df)), dtype = np.uint8)
+                for k in range(len(group_df)):
+                    if k == 0: 
+                        group_list[k] = 0
+                    if k > 0:
+                        if abs(group_df.mean_alt.iloc[k] - group_df.mean_alt.iloc[k-1]) < 5 and (group_df.Time_after_previous.iloc[k] < max_time_diff):
+                            group_list[k] = group_list[k-1].copy()            
+                        else:
+                            group_list[k] = group_list[k-1].copy()+1
+                group_df['new_group'] = group_list
+                groups = group_df.new_group.unique()
+                for group in groups:
+                    index_nrs = group_df.index[group_df['new_group'] == group]                       
+                    images = output.loc[index_nrs]
+                    multiple_outputs.append(images)
+                """  
                 for j in range(output['Groupby_nr'].max()+1):
                     subset = pd.DataFrame(output[output['Groupby_nr'] == j])
                     if len(subset) < 10:
@@ -356,6 +382,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     #output['Output_folder'] = output['Input_folder'].apply(lambda x:os.path.join(pattern.sub(lambda m: rep[re.escape(m.group(0))], os.path.dirname(x))))#\
                     #, os.path.basename(x)))
                     #create txt file for processing
+                """
                 if len(multiple_outputs) > 0:
                     for output in multiple_outputs:
                         time.sleep(2)
@@ -366,7 +393,6 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                         no_of_imgs = len(output)
                         new_scan_id = insert_new_scan(meta, con, date_of_recording, time_of_recording, plot_name, no_of_images = no_of_imgs, upload_time=upload_time,
                                             preprocess_time=preprocess_time, live=False)
-
                         #Create logoutput and to_process file
                         timestr = time.strftime("%Y%m%d-%H%M%S")
                         #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
