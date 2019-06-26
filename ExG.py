@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import rasterio
 
 from sklearn.cluster import MeanShift
 
@@ -60,6 +61,19 @@ def rgbvi(b,g,r):
     rgbvi_index[rgbvi_index < -1] = 0
     rgbvi_index = np.asarray(scaler.fit_transform(rgbvi_index), dtype = np.uint8)
     return rgbvi_index
+
+def write_tif(img, raster, output_path, filename):
+    with rasterio.open(raster) as src:
+        #read
+        out_transform = src.transform
+        out_meta = src.meta
+    out_meta.update({"driver": "GTiff",
+                     "count": 1,
+                     "transform": out_transform})
+    with rasterio.open(os.path.join(output_path, filename), \
+    "w", **out_meta, BIGTIFF='YES',NUM_THREADS='ALL_CPUS',COMPRESS='LZW') as dest:
+        dest.write(img)
+
     
 x_block_size = 60000
 y_block_size = 60000
@@ -71,11 +85,10 @@ it = list(range(0,10, 1))
 #def process_raster2template(x_block_size, y_block_size, model, skip, it):
 tic = time.time()
 i = 0
-raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c08_biobrass\AZ74\20190513\1357\Orthomosaic/c08_biobrass-AZ74-201905131357_clipped.tif'
-raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625.tif'
+raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c04_verdegaal\Lefeber\20190601\1646\Orthomosaic/c04_verdegaal-Lefeber-201906011646.tif'
+#raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625.tif'
 
-
-output_path = r'F:\400 Data analysis\410 Plant count\c03_termote\Binnendijk_links'
+output_path = r'F:\400 Data analysis\450 Index\Lefeber'
 #srcArray = gdalnumeric.LoadFile(raster)
 ds = gdal.Open(raster)
 band = ds.GetRasterBand(1)
@@ -112,18 +125,36 @@ for y in range(0, ysize, y_block_size):
             #if img.mean() > 0:
             ExG2 = ExG(b,g,r)
             cv2.imwrite(output_path + '/ExG_'+str(blocks)+'.jpg',ExG2)
+            ExG2 = ExG2.reshape(1, ExG2.shape[0], ExG2.shape[1]) 
+            #define filename
+            filename = 'ExG.tif'
+            write_tif(ExG2, raster, output_path, filename)
             ExG2 = None
+            
             var = VARI(b,g,r)
             cv2.imwrite(output_path + '/VARI_'+str(blocks)+'.jpg',var)
+            var = var.reshape(1, var.shape[0], var.shape[1])
+            #define filename
+            filename = 'var.tif'
+            write_tif(var, raster, output_path, filename)
             var = None
+            
             gli = GLI(b,g,r)
             cv2.imwrite(output_path + '/GLI_'+str(blocks)+'.jpg',gli)
+            gli = gli.reshape(1, gli.shape[0], gli.shape[1])
+            write_tif(gli, raster, output_path, filename)
             gli = None
+            
             vndvi = visual_NDVI(b,g,r)
-            cv2.imwrite(output_path + '/vndvi_'+str(blocks)+'.jpg',vndvi)
+            cv2.imwrite(output_path + '/vndvi_'+str(blocks)+'.jpg',vndvi)           
+            vndvi = vndvi.reshape(1, vndvi.shape[0], vndvi.shape[1])
+            write_tif(vndvi, raster, output_path, filename)
             vndvi = None
+            
             rgbvi = rgbvi(b,g,r)
             cv2.imwrite(output_path + '/rgbvi_'+str(blocks)+'.jpg',rgbvi)
+            rgbvi = rgbvi.reshape(1, rgbvi.shape[0], rgbvi.shape[1])
+            write_tif(rgbvi, raster, output_path, filename)
             rgbvi = None
             
             thresh, binary = cv2.threshold(ExG2, 0, 255, cv2.THRESH_OTSU)
@@ -135,27 +166,4 @@ for y in range(0, ysize, y_block_size):
 
 cielab = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)
 cv2.imwrite(output_path + '\cielab.jpg', cielab)
-
-
-
-
-#testing of meanshift
-          
-img = np.zeros((b.shape[0], b.shape[1], 3))
-img[:,:,0] = b
-img[:,:,1] = g
-img[:,:,2] = r  
-          
-img_lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-a = np.array(img_lab[:,:,1])
-b2 = np.array(img_lab[:,:,2])
-
-a_flat = a.flatten()
-b2_flat = b2.flatten()
-Classificatie_Lab = np.ma.column_stack((a_flat, b2_flat))
-
-            
-ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)
-ms.fit(X)
-
 

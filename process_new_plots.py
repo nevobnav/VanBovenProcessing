@@ -19,7 +19,7 @@ os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing')
 from vanbovendatabase.postgres_lib import *
 
 #specify customer name here:
-customer_name = 'c07_hollandbean'
+customer_name = 'c04_verdegaal'
 
 #database configuration
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
@@ -34,22 +34,21 @@ DB_USER = config['DB_USER']
 DB_PASSWORD = config['DB_PASSWORD']
 DB_IP = config['DB_IP']
 
-def customer_plots2kml(customer_name, config_file_path, port):
+def customer_plots2kml(customer_name, config_file_path):
     fiona.supported_drivers['KML'] = 'rw'
     cust_path = os.path.join(path, customer_name)
     if not os.path.exists(cust_path):
         os.makedirs(cust_path)
     con,meta = connect(DB_USER, DB_PASSWORD, DB_NAME, host=DB_IP)
-    plot_ids = get_customer_plots(customer_name, meta, con)
-    plot_names = get_customer_plots_name(customer_name, meta, con)
+    plot_ids, plot_names = get_customer_plots(customer_name, meta, con)
     for i, plot_id in enumerate(plot_ids):
         name = plot_names[i]
         name = name.replace(' ','_')
         geometry = to_shape(get_plot_shape(plot_id, meta, con))
         gdf = gpd.GeoDataFrame({'name': name, 'geometry': geometry}, index = [0])
-        gdf.to_file(os.path.join(cust_path,str(name)+'.kml'), driver='KML')
+        gdf.to_file(os.path.join(cust_path,str(name)+'.shp'))#, driver='KML')
 
 #run to create kml files of plots
-customer_plots2kml(customer_name, config_file_path, port)
+customer_plots2kml(customer_name, config_file_path)
 
 

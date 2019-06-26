@@ -280,12 +280,12 @@ quality = sys.argv[1]
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
-logging.basicConfig(filename = r"E:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + str(timestr) + "_Metashape_log_file.log",level=logging.DEBUG)
+logging.basicConfig(filename = r"D:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + str(timestr) + "_Metashape_log_file.log",level=logging.DEBUG)
 
-#root_path = r'E:\100 Testing\190304 batch_script_test'
-process_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_process'
-move_path = r'E:\VanBovenDrive\VanBoven MT\Processing\To_move'
-processing_archive_path = r'E:\VanBovenDrive\VanBoven MT\Processing\Archive'
+#root_path = r'D:\100 Testing\190304 batch_script_test'
+process_path = r'D:\VanBovenDrive\VanBoven MT\Processing\To_process'
+move_path = r'D:\VanBovenDrive\VanBoven MT\Processing\To_move'
+processing_archive_path = r'D:\VanBovenDrive\VanBoven MT\Processing\Archive'
 processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
 temp_processing_folder = r'E:\Metashape'
 #execute:
