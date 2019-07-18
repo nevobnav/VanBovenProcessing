@@ -27,7 +27,7 @@ def connect(user, password, db, host='localhost', port=5432):
 
 
 def insert_new_scan(meta, con, date, time, plot, no_of_images = 0, zoomlevel = 23, flight_altitude=35, sensor='unknown', quality='MED', upload_time=None,
-                    preprocess_time=None, ortho_time = None, tiles_time = None, live=False):
+                    preprocess_time=None, ortho_time = None, tiles_time = None, live=False, seen_by_user=False):
     try:
         int(plot)
         plot_id = plot
@@ -45,7 +45,8 @@ def insert_new_scan(meta, con, date, time, plot, no_of_images = 0, zoomlevel = 2
                 'preprocess': preprocess_time,
                 'ortho': ortho_time,
                 'tiles': tiles_time,
-                'live': live
+                'live': live,
+                'seen_by_user': seen_by_user
                 }
     scans = meta.tables['portal_scan']
     insert_new_scan = scans.insert().values(new_scan)

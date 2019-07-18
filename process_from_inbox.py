@@ -99,7 +99,7 @@ def mkpath(sftp,path):
 
 ## CONFIG SECTION ##
 inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #folder where all orthos are stored
-ortho_archive_destination = r'E:\VanBovenDrive\VanBoven MT\Archive' #Folder where orthos are archived (gdrive)
+ortho_archive_destination = r'D:\VanBovenDrive\VanBoven MT\Archive' #Folder where orthos are archived (gdrive)
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
 
 
@@ -298,8 +298,8 @@ for ortho in ortho_que:
     if not(os.path.isdir(ortho_archive_target)):
         os.makedirs(ortho_archive_target)
 
-    #Moving original and clipped ortho to archive
-    shutil.move(input_file,os.path.join(ortho_archive_target,filename_clipped))
+    #Moving original ortho to archive, remove clipped ortho
+    os.remove(input_file,os.path.join(ortho_archive_target,filename_clipped))
     shutil.move(os.path.join(inbox,filename),os.path.join(ortho_archive_target,filename))
 
     end_ortho_time = time.time()
