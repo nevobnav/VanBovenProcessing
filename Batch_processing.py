@@ -48,7 +48,7 @@ def get_scan_information(chunk):
     sensor = chunk.sensors[0]
     camera = chunk.cameras[1]
     #flying altitude (float)
-    height_of_flight = camera.reference.location.z
+    height_of_flight = np.array([camera.reference.location.z for camera in cameras]).mean()
     ortho = chunk.orthomosaic
     #gsd in meters (float)
     gsd = ortho.resolution

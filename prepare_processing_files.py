@@ -384,7 +384,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     #create txt file for processing
                 """
                 if len(multiple_outputs) > 0:
-                    for output in multiple_outputs:
+                    for final_output in multiple_outputs:
                         time.sleep(2)
                         #register this processing job as a Scan in database:
                         time_of_recording = output.DateTime.iloc[1].time()
@@ -396,7 +396,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                         #Create logoutput and to_process file
                         timestr = time.strftime("%Y%m%d-%H%M%S")
                         #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                        output[['Input_folder']].to_csv(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + \
+                        final_output[['Input_folder']].to_csv(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + \
                         str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
                         with open(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + \
                         str(plot_name)+".txt", 'a') as f:
