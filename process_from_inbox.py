@@ -299,7 +299,7 @@ for ortho in ortho_que:
         os.makedirs(ortho_archive_target)
 
     #Moving original ortho to archive, remove clipped ortho
-    os.remove(input_file,os.path.join(ortho_archive_target,filename_clipped))
+    os.remove(os.path.join(inbox, filename_clipped))
     shutil.move(os.path.join(inbox,filename),os.path.join(ortho_archive_target,filename))
 
     end_ortho_time = time.time()
