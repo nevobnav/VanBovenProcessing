@@ -14,6 +14,7 @@ import time
 import sys
 import datetime
 import os
+import shutil
 
 def coords_to_pixels(input_object, x, y):
     # The information is returned as tuple:
@@ -58,7 +59,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     dst_srs.ImportFromEPSG(output_epsg)
     dst_wkt = dst_srs.ExportToWkt()
 
-    # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned. 
+    # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned.
     if filetype == 'DEM':
         output_Type = gdal.GDT_Float32
     else:
@@ -112,8 +113,10 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
 ## CONFIG SECTION ##
 inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\TEST' #folder where all files are read from
-ortho_outbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload' #folder where all rectified files are stored
-DEM_outbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs' #folder where all rectified files are stored
+path_ready_to_upload = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload' #folder where all rectified files are stored
+path_trashbin_originals = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trashbin_originals' #folder where all rectified files are stored
+path_rectified_DEMs_points = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs_points' #folder where all rectified files are stored
+
 
 
  #initialize
@@ -134,11 +137,11 @@ for ortho in orthos:
     # check if corresponding DEM & points also exist, if so add to queue
     filename = os.path.splitext(ortho)
 
-    ortho_path = os.path.join(inbox, ortho)
-    DEM_path = os.path.join(inbox, filename[0] + '_DEM.tif')
-    points_path = os.path.join(inbox, filename[0] +  '.points')
+    path_ortho = os.path.join(inbox, ortho)
+    path_DEM = os.path.join(inbox, filename[0] + '_DEM.tif')
+    path_points = os.path.join(inbox, filename[0] +  '.points')
 
-    if os.path.exists(DEM_path) and os.path.exists(points_path):
+    if os.path.exists(path_ortho) and os.path.exists(path_points):
 
         #name convention: customer-plot-date.tif
         this_customer_name,this_plot_name,this_datetime = ortho.split('-')
@@ -146,13 +149,13 @@ for ortho in orthos:
         this_datetime = this_datetime.split('(')[0] #Splits of brackets for duplicates if present
         this_date = this_datetime[0:-4]
         this_time = this_datetime[-4::]
-        
-        ortho_path_out = os.path.join(ortho_outbox, filename[0] + '_GR.tif' )
-        DEM_path_out = os.path.join(DEM_outbox, filename[0] + '_DEM_GR.tif')
 
-        queue = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename[0], 
-                 "ortho_path": ortho_path, "DEM_path": DEM_path, "points_path": points_path,
-                 "ortho_path_out": ortho_path_out, "DEM_path_out": DEM_path_out}
+        path_ortho_out = os.path.join(path_ready_to_upload, filename[0] + '-GR.tif' )
+        path_DEM_out = os.path.join(path_rectified_DEMs_points, filename[0] + '_DEM-GR.tif')
+
+        queue = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename[0],
+                 "path_ortho": path_ortho, "path_DEM": path_DEM, "path_points": path_points,
+                 "path_ortho_out": path_ortho_out, "path_DEM_out": path_DEM_out}
         ('    {}: {}\n'.format(str(ortho_count),filename))
         files.append(queue)
 
@@ -160,24 +163,36 @@ for ortho in orthos:
 process_queue = sorted(files, key=lambda k: k['flight_date'])
 
 for file in process_queue:
-    
+
     tic = time.time()
 
-    # georectify orthomosaic
+    # georectify orthomosaic -> export to 'ready to upload folder'
     try:
         # translate_and_warp_tiff(input_file, gcp_file, output_file)
-        translate_and_warp_tiff(file['ortho_path'], file['points_path'], file['ortho_path_out'], '')
+        translate_and_warp_tiff(file['path_ortho'], file['path_points'], file['path_ortho_out'], '')
     except:
         print('ortho rechtleggen werkt niet')
 
-    # georectify DEM
+    # georectify DEM -> export to 'rectified DEMs folder'
     try:
-        translate_and_warp_tiff(file['DEM_path'], file['points_path'], file['DEM_path_out'], 'DEM')
+        translate_and_warp_tiff(file['path_DEM'], file['path_points'], file['path_DEM_out'], 'DEM')
     except:
         print('dem rechtleggen werkt niet')
 
     toc = time.time()
     total_time = (toc-tic)
+
+    # Move original (input) files to their respective folders
+    if os.path.exists(path_ortho): # move original ortho
+        shutil.move(file['path_ortho'], os.path.join(path_trashbin_originals,file['filename'] + '.tif'))
+
+    if os.path.exists(path_DEM): # move original DEM
+        shutil.move(file['path_DEM'], os.path.join(path_trashbin_originals,file['filename'] + '_DEM.tif'))
+
+    if os.path.exists(path_points): # move used points file
+        shutil.move(file['path_points'], os.path.join(path_rectified_DEMs_points,file['filename'] + '.points'))
+
+# check is 'ready to rectify' folder is empty at this stage.
 
 
 ## utilities and quick check ##
