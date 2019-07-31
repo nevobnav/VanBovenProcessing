@@ -1,4 +1,3 @@
-
 ## Translate input geotiff + gcps -> output tiled geotiff in correct coordinate system
 ## optimised for multi-core, lots of RAM computer
 
@@ -10,7 +9,7 @@
 # (1) GeoTiff file georeferenced according to defined GCPs
 
 import csv
-from osgeo import gdal, ogr, osr
+from osgeo import gdal, osr
 import time
 import sys
 import datetime
@@ -30,7 +29,7 @@ def coords_to_pixels(input_object, x, y):
 
     return x_index, y_index
 
-def translate_and_warp_tiff(input_file, gcp_file, output_file):
+def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # read tiff with gdal
     input_object = gdal.Open(input_file)
@@ -59,8 +58,14 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file):
     dst_srs.ImportFromEPSG(output_epsg)
     dst_wkt = dst_srs.ExportToWkt()
 
+    # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned. 
+    if filetype == 'DEM':
+        output_Type = gdal.GDT_Float32
+    else:
+        output_Type = gdal.GDT_Byte
+
     trnsopts = gdal.TranslateOptions(format='VRT',
-                                     outputType=gdal.GDT_Byte,
+                                     outputType=output_Type,
                                      outputSRS=dst_wkt,
                                      GCPs=gcp_list,
                                      creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256']
@@ -75,12 +80,11 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file):
 
     # remote input file & object from working memory
     input_object = None
-    gdal.Unlink(input_file)
 
     # Set warping options for GDAL
     warpopts = gdal.WarpOptions(format='GTiff',
-                                outputType=gdal.GDT_Byte,
-                                workingType=gdal.GDT_Byte,
+                                outputType=output_Type,
+                                workingType=output_Type,
                                 srcSRS=dst_wkt,
                                 dstSRS=dst_wkt,
                                 dstAlpha=True,
@@ -104,19 +108,16 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file):
     translate_object = None
     output_object = None
 
-    toc = time.time()
-    total_time = (toc-tic)
-
-    return total_time
+    return
 
 ## CONFIG SECTION ##
-inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox' #folder where all orthos are stored
+inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\TEST' #folder where all files are read from
+outbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready_to_upload' #folder where all rectified files are stored
 
-tic = time.time()
 
  #initialize
 files = []
-tif_count = 0
+ortho_count = 0
 duplicate = 0
 timestr = datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')
 datestr = datetime.datetime.now().strftime('%Y%m%d')
@@ -124,59 +125,70 @@ timestr_filename = datetime.datetime.now().strftime('%Y%m%d_%H-%M-%S')
 
 # Collect available tiffs, DEMS and points files
 tiffs = [tiff for tiff in os.listdir(inbox) if tiff.endswith('.tif')]
+orthos = [s for s in tiffs if "_DEM.tif" not in s]
 
-for tiff in tiffs:
-    tif_count +=1
+for ortho in orthos:
+    ortho_count +=1
 
     # check if corresponding DEM & points also exist, if so add to queue
-    filename = os.path.splitext(tiff)
+    filename = os.path.splitext(ortho)
 
-    dem_path = os.path.join(inbox, filename + '_DEM.tiff'))
-    points_path = os.path.join(inbox, filename +  '.points'))
+    ortho_path = os.path.join(inbox, ortho)
+    DEM_path = os.path.join(inbox, filename[0] + '_DEM.tif')
+    points_path = os.path.join(inbox, filename[0] +  '.points')
 
-    if os.path.exists(dem_path) and os.path.exists(points_path):
+    if os.path.exists(DEM_path) and os.path.exists(points_path):
 
         #name convention: customer-plot-date.tif
-        this_customer_name,this_plot_name,this_datetime = file.split('-')
+        this_customer_name,this_plot_name,this_datetime = ortho.split('-')
         this_datetime = this_datetime.split('.')[0]
         this_datetime = this_datetime.split('(')[0] #Splits of brackets for duplicates if present
         this_date = this_datetime[0:-4]
         this_time = this_datetime[-4::]
+        
+        ortho_path_out = os.path.join(outbox, filename[0] + '_GR.tif' )
+        DEM_path_out = os.path.join(outbox, filename[0] + '_DEM_GR.tif')
 
-        # // dem path
-        # // points path
-        # //
-
-        dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename}
-        ('    {}: {}\n'.format(str(tif_count),filename))
-        files.append(dict)
+        queue = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename[0], 
+                 "ortho_path": ortho_path, "DEM_path": DEM_path, "points_path": points_path,
+                 "ortho_path_out": ortho_path_out, "DEM_path_out": DEM_path_out}
+        ('    {}: {}\n'.format(str(ortho_count),filename))
+        files.append(queue)
 
 # queue of all flights for which an orthomosaic, DEM and .points file is available
 process_queue = sorted(files, key=lambda k: k['flight_date'])
 
-
-for ortho in process_queue:
-
-    # # georectify orthomosaic
-    # try:
-    #     translate_and_warp_tiff(ortho_path, gcp_file, ortho_output_path)
-    # except
-    #     ---
-
+for file in process_queue:
+    
+    tic = time.time()
 
     # georectify orthomosaic
-    translate_and_warp_tiff(dem_path, gcp_file, dem_output_path)
+    try:
+        # translate_and_warp_tiff(input_file, gcp_file, output_file)
+        translate_and_warp_tiff(file['ortho_path'], file['points_path'], file['ortho_path_out'], '')
+    except:
+        print('ortho rechtleggen gaat kut')
+
+    # georectify DEM
+    try:
+        translate_and_warp_tiff(file['DEM_path'], file['points_path'], file['DEM_path_out'], 'DEM')
+    except:
+        print('dem rechtleggen gaat kut')
+
+    toc = time.time()
+    total_time = (toc-tic)
 
 
 
 
-# define input, gcp, output files
-input_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503.tif'
-gcp_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503.points'
-output_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503_out.tif'
 
-# Perform warp and translate ops
-translate_and_warp_tiff(input_file, gcp_file, output_file)
+## define input, gcp, output files
+#input_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503.tif'
+#gcp_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503.points'
+#output_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503_out.tif'
+#
+## Perform warp and translate ops
+#translate_and_warp_tiff(input_file, gcp_file, output_file)
 
 
 
