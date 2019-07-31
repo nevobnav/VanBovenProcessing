@@ -112,7 +112,8 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
 ## CONFIG SECTION ##
 inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\TEST' #folder where all files are read from
-outbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready_to_upload' #folder where all rectified files are stored
+ortho_outbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload' #folder where all rectified files are stored
+DEM_outbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs' #folder where all rectified files are stored
 
 
  #initialize
@@ -146,8 +147,8 @@ for ortho in orthos:
         this_date = this_datetime[0:-4]
         this_time = this_datetime[-4::]
         
-        ortho_path_out = os.path.join(outbox, filename[0] + '_GR.tif' )
-        DEM_path_out = os.path.join(outbox, filename[0] + '_DEM_GR.tif')
+        ortho_path_out = os.path.join(ortho_outbox, filename[0] + '_GR.tif' )
+        DEM_path_out = os.path.join(DEM_outbox, filename[0] + '_DEM_GR.tif')
 
         queue = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename[0], 
                  "ortho_path": ortho_path, "DEM_path": DEM_path, "points_path": points_path,
@@ -167,31 +168,16 @@ for file in process_queue:
         # translate_and_warp_tiff(input_file, gcp_file, output_file)
         translate_and_warp_tiff(file['ortho_path'], file['points_path'], file['ortho_path_out'], '')
     except:
-        print('ortho rechtleggen gaat kut')
+        print('ortho rechtleggen werkt niet')
 
     # georectify DEM
     try:
         translate_and_warp_tiff(file['DEM_path'], file['points_path'], file['DEM_path_out'], 'DEM')
     except:
-        print('dem rechtleggen gaat kut')
+        print('dem rechtleggen werkt niet')
 
     toc = time.time()
     total_time = (toc-tic)
-
-
-
-
-
-## define input, gcp, output files
-#input_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503.tif'
-#gcp_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503.points'
-#output_file = r'D:\700 Georeferencing\Hendrik de Heer georeferencing/c07_hollandbean-Hendrik de Heer-20190503_out.tif'
-#
-## Perform warp and translate ops
-#translate_and_warp_tiff(input_file, gcp_file, output_file)
-
-
-
 
 
 ## utilities and quick check ##
