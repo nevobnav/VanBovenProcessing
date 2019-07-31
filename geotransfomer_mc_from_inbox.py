@@ -9,7 +9,6 @@
 # OUTPUT:
 # (1) GeoTiff file georeferenced according to defined GCPs
 
-
 import csv
 from osgeo import gdal, ogr, osr
 import time
@@ -67,7 +66,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file):
                                      creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256']
                                      )
 
-    # Perform translate operation with GDAL -> output is VRT stored in memory
+    # Perform translate operation with GDAL -> output is VRT stored in system memory
     translate_object = gdal.Translate('', input_object, options = trnsopts)
 
     # check if output is generated
@@ -95,7 +94,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file):
                                 )
 
     # Perform actual warping operation -> output to specified path, filename
-    output_object = gdal.Warp(output_file, translate_object, format='GTiff', options = warpopts)
+    output_object = gdal.Warp(output_file, translate_object, options = warpopts)
 
     # check if output is generated
     if output_object is None:
@@ -136,7 +135,37 @@ for tiff in tiffs:
     points_path = os.path.join(inbox, filename +  '.points'))
 
     if os.path.exists(dem_path) and os.path.exists(points_path):
+
+        #name convention: customer-plot-date.tif
+        this_customer_name,this_plot_name,this_datetime = file.split('-')
+        this_datetime = this_datetime.split('.')[0]
+        this_datetime = this_datetime.split('(')[0] #Splits of brackets for duplicates if present
+        this_date = this_datetime[0:-4]
+        this_time = this_datetime[-4::]
+
+        # // dem path
+        # // points path
+        # //
+
+        dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename}
+        ('    {}: {}\n'.format(str(tif_count),filename))
         files.append(dict)
+
+# queue of all flights for which an orthomosaic, DEM and .points file is available
+process_queue = sorted(files, key=lambda k: k['flight_date'])
+
+
+for ortho in process_queue:
+
+    # # georectify orthomosaic
+    # try:
+    #     translate_and_warp_tiff(ortho_path, gcp_file, ortho_output_path)
+    # except
+    #     ---
+
+
+    # georectify orthomosaic
+    translate_and_warp_tiff(dem_path, gcp_file, dem_output_path)
 
 
 
