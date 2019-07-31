@@ -43,6 +43,23 @@ db=config.get("DB_NAME")
 user=config.get("DB_USER")
 password=config.get("DB_PASSWORD")
 
+def copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id):
+    path_to_plot = os.path.join(processing_archive_path, customer_id, plot_id)
+    path_to_plot = path_to_plot.replace(r"\Processing","")
+    list_of_recordings = os.listdir(path_to_plot)
+    if 'desktop.ini' in list_of_recordings: 
+        list_of_recordings.remove('desktop.ini')
+    for i in range(len(list_of_recordings)): 
+        i=i+1
+        path_to_latest_recording = os.path.join(path_to_plot, list_of_recordings[-i])
+        for path, subdirs, files in os.walk(path_to_latest_recording):
+            for name in files:
+                if name.endswith('.points'):
+                    src = os.path.join(path, name)
+                    dst = os.path.join(processing_folder, (ortho_out[:-4] + '_template.points'))
+                    shutil.copyfile(src, dst)
+                    break
+
 def get_scan_information(chunk):
     #sensor type (str)
     sensor = chunk.sensors[0]
@@ -228,6 +245,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     toc = time.clock()
     processing_time = toc - tic
     logging.info("DEM generation took "+str(int(processing_time))+" seconds")
+    
     ################################################################################################
     ## Build orthomosaic for the chunk.
     # buildOrthomosaic(surface=ElevationData, blending=MosaicBlending, color_correction=False[, projection ][, region ][, dx ][, dy ][, progress])
@@ -262,7 +280,10 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     while os.path.isfile(str(ortho_out)) == True:
         ortho_out = ortho_out[:-4] + '('+str(name_it)+').tif'
         name_it += 1
+    DEM_out = ortho_out[:-4] + '_DEM.tif'    
+    #export orthomosaic and DEM
     chunk.exportOrthomosaic(path = ortho_out, tiff_big = True) #, jpeg_quality(75)
+    chunk.exportDEM(path = DEM_out, tiff_big = True)
     #finish and write to logfile
     toc = time.clock()
     processing_time = toc-tic
@@ -313,7 +334,6 @@ for proces_file in os.listdir(process_path):
             scan_data = get_scan(con, meta, scan_id=scan_id)
             scan_time = scan_data[0]['time']
 
-
             #select the folder of the parcel in the archive map
             customer_id = os.path.basename(os.path.dirname(os.path.dirname(photoList[0])))
             day_of_recording = os.path.basename(os.path.dirname(photoList[0]))
@@ -343,8 +363,9 @@ for proces_file in os.listdir(process_path):
                     columns = ['Flight date',	'Processing date',	'Start time',	'Customer Name',	'Plot Name',	'No of photos',	'Agisoft filename'])
                 #append info to processinglog.xlsx
                 append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
-
-
+                
+                #copy previous point file used for georeferencing if available
+                copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id)
 
                 #get different paramters related to the flight/scan and add to db:
                 height_of_flight, gsd, zoomlevel, flight_datetime, sensor = scan_information
