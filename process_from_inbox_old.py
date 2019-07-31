@@ -98,14 +98,10 @@ def mkpath(sftp,path):
 
 
 ## CONFIG SECTION ##
+inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\ready' #folder where all orthos are stored
+ortho_archive_destination = r'D:\VanBovenDrive\VanBoven MT\Archive' #Folder where orthos are archived (gdrive)
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
 
-path_ready_to_rectify = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\1_ready_to_rectify'       # folder where all approved original orthos, DEMS and points are stored
-path_rectified_DEMs = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs_points'   # folder where all rectified DEMs are stored
-path_ready_to_upload = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload'         # folder where all rectified orthos are stored
-
-path_trash_ortho = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trashbin_originals'     # temporary folder where original orthos and DEMs are kept AFTER georectification
-ortho_archive_destination = r'D:\VanBovenDrive\VanBoven MT\Archive'                         # Folder where rectified orthos, DEMs and points are archived (gdrive)
 
 with open('postgis_config.json') as config_file:
     config = json.load(config_file)
@@ -126,7 +122,7 @@ timestr_filename = datetime.datetime.now().strftime('%Y%m%d_%H-%M-%S')
 
 
 ## Creating log file:
-logdir = os.path.join(path_ready_to_upload,'logs') #get parent of 'ready' folder, which is the Inbox
+logdir = os.path.join(inbox,'logs') #get parent of 'ready' folder, which is the Inbox
 logfile = '{}_log.txt'.format(timestr_filename)
 logpath_base = os.path.join(logdir,logfile)
 logpath = logpath_base
@@ -142,27 +138,17 @@ logging.info('Time: {}\n'.format(timestr))
 
 
 #Collect available tif files and list of dicts 'orthos'
-files = [file for file in os.listdir(path_ready_to_upload) if file.endswith('.tif')]
+files = [file for file in os.listdir(inbox) if file.endswith('.tif')]
 logging.info('Total of {} files to process: \n'.format(len(files)))
 for file in files:
     #name convention: customer-plot-date.tif
     tif_count +=1
-    test = file.split('-')
-
-    if len(test) == 3:
-        this_customer_name,this_plot_name,this_datetime = file.split('-')
-    elif len(test) == 4:
-        this_customer_name,this_plot_name,this_datetime, this_GR = file.split('-')
-
+    this_customer_name,this_plot_name,this_datetime = file.split('-')
     this_datetime = this_datetime.split('.')[0]
     this_datetime = this_datetime.split('(')[0] #Splits of brackets for duplicates if present
     this_date = this_datetime[0:-4]
     this_time = this_datetime[-4::]
-
-    if len(test) == 4:
-        dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": True}
-
-    dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
+    dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file}
     ('    {}: {}\n'.format(str(tif_count),file))
     orthos.append(dict)
 
@@ -171,7 +157,7 @@ ortho_que = sorted(orthos, key=lambda k: k['flight_date'])
 ## Tiling process ##
 
 #create temporary folder for tile files if not yet available
-tile_output_base_dir = os.path.join(path_ready_to_upload,'temp_tiles')
+tile_output_base_dir = os.path.join(inbox,'temp_tiles')
 if not(os.path.isdir(tile_output_base_dir)):
     os.mkdir(tile_output_base_dir)
 #Loop trough all available tifs and tile them.
@@ -207,7 +193,7 @@ for ortho in ortho_que:
     #clip ortho to plot shape:
     logging.info('    Clipping {}...\n'.format(filename))
     start_clip_time = time.time()
-    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+    clip_ortho2plot(plot_name, con, meta, inbox,filename)
     end_clip_time = time.time()
     clip_duration = round((end_clip_time-start_clip_time)/60)
     logging.info('    Clipped in {} minutes...\n'.format(clip_duration))
@@ -217,7 +203,7 @@ for ortho in ortho_que:
     logging.info('Start tiling proces for {}\n'.format(filename))
     start_tiling_time = time.time()
     #Identify and create file locations
-    input_file = os.path.join(path_ready_to_upload,filename_clipped)
+    input_file = os.path.join(inbox,filename_clipped)
     output_folder = os.path.join(tile_output_base_dir,filename.split('.')[0])
     #DEBUGGIN: Skip if already tiled
     if os.path.isdir(output_folder):
@@ -307,46 +293,14 @@ for ortho in ortho_que:
     end_delete_time = time.time()
     logging.info('deleted in {} seconds. \n'.format(end_delete_time - start_delete_time))
     sftp.close()
-    logging.info('moving and removing files')
-
-    ## Move rectified ortho, DEM and .points file to archive
-
-    # define file names and paths for possible DEMs and .points
-    filename_ortho = os.path.splitext(ortho)
-
-    # final files to be archived
-    filename_DEM = (filename_ortho[0] + '_DEM-GR.tif')
-    filename_points = (filename_ortho[0] + '.points')
-    filename_ortho_or = (filename_ortho[:-3] + '.tif')
-    filename_DEM_or = (filename_ortho[:-3] + '_DEM.tif')
-
-
-    path_ortho = os.path.join(path_ready_to_upload, filename)
-    path_DEM = os.path.join(path_rectified_DEMs, filename_DEM)
-    path_points = os.path.join(path_rectified_DEMs, filename_points)
-
-    #Moving (georectified) ortho to archive
+    logging.info('moving files')
+    #Move orthomosaic to correct folder
     if not(os.path.isdir(ortho_archive_target)):
         os.makedirs(ortho_archive_target)
-    shutil.move(path_ortho,os.path.join(ortho_archive_target,filename))
 
-    #Moving (georectified) DEM to archive if present
-    if os.path.exists(path_DEM):
-        shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM))
-
-    #Moving .points file to archive if present
-    if os.path.exists(path_points):
-        shutil.move(path_points,os.path.join(ortho_archive_target,filename_points))
-
-    # Clear out trashbin_originals as all files have been processed
-    try:
-        os.remove(os.path.join(path_trashbin_originals, filename_ortho_or))
-
-    try:
-        os.remove(os.path.join(path_trashbin_originals, filename_DEM_or))
-
-    # Remove clipped ortho
-    os.remove(os.path.join(path_ready_to_upload, filename_clipped))
+    #Moving original ortho to archive, remove clipped ortho
+    os.remove(os.path.join(inbox, filename_clipped))
+    shutil.move(os.path.join(inbox,filename),os.path.join(ortho_archive_target,filename))
 
     end_ortho_time = time.time()
     logging.info('    Finished processing {} in {} minutes\n \n'.\
