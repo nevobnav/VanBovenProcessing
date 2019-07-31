@@ -13,7 +13,9 @@ import gdal
 import pandas as pd
 import subprocess
 import paramiko
-from clip_ortho_2_plot import clip_ortho2plot
+ from clip_ortho_2_plot import clip_ortho2plot
+#from clip_ortho_2_plot_gdal import clip_ortho2plot
+
 import logging
 from vanbovendatabase.postgres_lib import *
 import datetime
@@ -123,8 +125,6 @@ timestr = datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')
 datestr = datetime.datetime.now().strftime('%Y%m%d')
 timestr_filename = datetime.datetime.now().strftime('%Y%m%d_%H-%M-%S')
 
-
-
 ## Creating log file:
 logdir = os.path.join(path_ready_to_upload,'logs') #get parent of 'ready' folder, which is the Inbox
 logfile = '{}_log.txt'.format(timestr_filename)
@@ -163,7 +163,7 @@ for file in files:
         dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": True}
     elif len(test) == 3:
         dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
-    
+
     ('    {}: {}\n'.format(str(tif_count),file))
     orthos.append(dict)
 
@@ -315,13 +315,13 @@ for ortho in ortho_que:
     # define file names and paths for possible DEMs and .points
     filename_ortho = os.path.splitext(filename)
     filename_ortho = filename_ortho[0]
-    
+
     # build check if georeferenced, different filenames
     if ortho['georectified']:
         filename_DEM = (filename_ortho[0:-3] + '_DEM-GR.tif')
-        filename_points = (filename_ortho + '.points')
-        filename_ortho_or = (filename_ortho[:-3] + '.tif')
-        filename_DEM_or = (filename_ortho[:-3] + '_DEM.tif')
+        filename_points = (filename_ortho[0:-3] + '.points')
+        filename_ortho_or = (filename_ortho[0:-3] + '.tif')
+        filename_DEM_or = (filename_ortho[0:-3] + '_DEM.tif')
     elif not(ortho['georectified']):
         filename_DEM = (filename_ortho + '_DEM.tif')
         filename_points = (filename_ortho + '.points')
@@ -351,7 +351,7 @@ for ortho in ortho_que:
             os.remove(os.path.join(path_trashbin_originals, filename_ortho_or))
         except:
             print('removing original ortho from trashbin did not happen')
-    
+
         try:
             os.remove(os.path.join(path_trashbin_originals, filename_DEM_or))
         except:

@@ -20,9 +20,27 @@ config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
 
 
+    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+
 def clip_ortho2plot(this_plot_name, con, meta, ortho_ready_inbox, file):
 
+    input_path = os.path.join(ortho_ready_inbox,file)
+    output_path = os.path.join(ortho_ready_inbox, str(file[:-4]) + '_clipped.tif')
+    
     geometry = to_shape(get_plot_shape(this_plot_name, meta, con)).buffer(0.00006)
+    geo = gpd.GeoDataFrame({'geometry': geometry}, index=[0], crs=from_epsg(4326))
+
+    output_Type = gdal.GDT_Byte
+    
+    geo.to_file('dataframe.shp', driver='ESRI Shapefile')
+    
+    shapyyy = r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing/dataframe.shp'
+    
+
+    output_epsg=4326
+    dst_srs = osr.SpatialReference()
+    dst_srs.ImportFromEPSG(output_epsg)
+    dst_wkt = dst_srs.ExportToWkt()
 
     warpopts = gdal.WarpOptions(format='GTiff',
                                 outputType=output_Type,
@@ -37,13 +55,13 @@ def clip_ortho2plot(this_plot_name, con, meta, ortho_ready_inbox, file):
                                 multithread=True,
                                 tps=True,
                                 transformerOptions=['NUM_THREADS=ALL_CPUS'],
-                                cutlineDSName = geometry,
+                                cutlineDSName = shapyyy,
                                 cutlineLayer='geometry',
-                                cropToCutline=True
+#                                cropToCutline=True
                                 )
 
     # Perform actual warping operation -> output to specified path, filename
-    output_object = gdal.Warp(ortho_ready_inbox, file, options = warpopts)
+    output_object = gdal.Warp(output_path, input_path, options = warpopts)
 
 
 
