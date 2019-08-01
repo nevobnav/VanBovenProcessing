@@ -15,7 +15,7 @@ metashape_path = r'E:\Metashape'
 output_path = r'D:\900 Metashape archive'
 days_to_store = 14
 
-def find_old_psx_files(metashape_path, days_to_store):
+def find_old_psx_files(metashape_path, days_to_store, output_path):
     today = datetime.date.today()
     threshold_date = today - datetime.timedelta(days=days_to_store)
     folderList = pd.DataFrame([x[0] for x in os.walk(metashape_path)], columns = ['Path'])
@@ -29,14 +29,18 @@ def find_old_psx_files(metashape_path, days_to_store):
                         file_created_date = datetime.date(int(file_created_str[:4]),int(file_created_str[4:6]), int(file_created_str[6:]))
                         if file_created_date < threshold_date:
                             psx_file = os.path.join(i, file)
-                            out_path = 'D'+i[1:]
-                            if os.path.exists(out_path) == False:
-                                os.makedirs(out_path)                                                           
                             Metashape.app.console.clear()
                             doc = Metashape.app.document
                             doc.open(psx_file)
-                            pszfile = psx_file[1:-4]+'.psz'
-                            doc.save( 'D'+pszfile )
+                            pszfile = psx_file[:-4]+'.psz'
+                            
+                            out_path = os.path.dirname(pszfile)
+                            if os.path.exists(out_path) == False:
+                                os.makedirs(out_path)                                                           
+                           
+                            pszfile = pszfile.replace(metashape_path, output_path)
+                            
+                            doc.save(pszfile )
                             os.remove(psx_file)
                             file_dir = psx_file[:-4]+'.files'
                             shutil.rmtree(file_dir)
@@ -45,4 +49,4 @@ def find_old_psx_files(metashape_path, days_to_store):
                     except:
                         print('error encountered while archiving')
 
-find_old_psx_files(metashape_path, days_to_store)
+find_old_psx_files(metashape_path, days_to_store, output_path)
