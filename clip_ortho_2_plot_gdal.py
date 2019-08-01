@@ -20,7 +20,7 @@ config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
 
 
-    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+#    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
 
 def clip_ortho2plot(this_plot_name, con, meta, ortho_ready_inbox, file):
 
