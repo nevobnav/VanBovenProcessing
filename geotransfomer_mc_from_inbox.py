@@ -203,6 +203,10 @@ for file in process_queue:
 
 ## utilities and quick check ##
 
+
+#translateoptions = gdal.TranslateOptions(gdal.ParseCommandLine("-of Gtiff -co COMPRESS=LZW"))
+#gdal.Translate(gdaloutput, gdalinput, options=translateoptions)
+
 # https://gdal.org/drivers/raster/gtiff.html#overviews
 # https://gdal.org/python/osgeo.gdal-module.html
 # https://svn.osgeo.org/gdal/trunk/autotest/utilities/test_gdalwarp_lib.py
