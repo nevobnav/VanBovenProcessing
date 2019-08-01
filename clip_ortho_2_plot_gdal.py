@@ -36,7 +36,6 @@ def clip_ortho2plot(this_plot_name, con, meta, ortho_ready_inbox, file):
     
     shapyyy = r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing/dataframe.shp'
     
-
     output_epsg=4326
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(output_epsg)
@@ -51,13 +50,11 @@ def clip_ortho2plot(this_plot_name, con, meta, ortho_ready_inbox, file):
                                 warpOptions=['NUM_THREADS=ALL_CPUS'],
                                 warpMemoryLimit=3000,
                                 creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'SKIP_NOSOURCE=YES', 'ALPHA=YES'],
-                                resampleAlg='cubicspline',
+#                                resampleAlg='cubicspline',
                                 multithread=True,
-                                tps=True,
                                 transformerOptions=['NUM_THREADS=ALL_CPUS'],
                                 cutlineDSName = shapyyy,
-                                cutlineLayer='geometry',
-#                                cropToCutline=True
+                                cropToCutline=True,
                                 )
 
     # Perform actual warping operation -> output to specified path, filename
