@@ -69,7 +69,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                      outputType=output_Type,
                                      outputSRS=dst_wkt,
                                      GCPs=gcp_list,
-                                     creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256']
+                                     creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512']
                                      )
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
@@ -82,7 +82,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # remote input file & object from working memory
     input_object = None
 
-    # based on no of GCPs as input, define transformation algo
+    # based on no of GCPs present, define transformation algorithm
     if len(gcp_list) < 10:
         tps_flag = False
     else:
@@ -97,7 +97,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                 dstAlpha=True,
                                 warpOptions=['NUM_THREADS=ALL_CPUS'],
                                 warpMemoryLimit=3000,
-                                creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'SKIP_NOSOURCE=YES', 'ALPHA=YES'],
+                                creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'ALPHA=YES'],
                                 resampleAlg='cubicspline',
                                 multithread=True,
                                 tps=tps_flag,

@@ -13,7 +13,7 @@ import gdal
 import pandas as pd
 import subprocess
 import paramiko
- from clip_ortho_2_plot import clip_ortho2plot
+from clip_ortho_2_plot import clip_ortho2plot
 #from clip_ortho_2_plot_gdal import clip_ortho2plot
 
 import logging
