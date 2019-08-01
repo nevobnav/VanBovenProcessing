@@ -82,6 +82,12 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # remote input file & object from working memory
     input_object = None
 
+    # based on no of GCPs as input, define transformation algo
+    if len(gcp_list) < 10:
+        tps_flag = False
+    else:
+        tps_flag = True
+
     # Set warping options for GDAL
     warpopts = gdal.WarpOptions(format='GTiff',
                                 outputType=output_Type,
@@ -94,7 +100,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                 creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=256', 'BLOCKYSIZE=256', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'SKIP_NOSOURCE=YES', 'ALPHA=YES'],
                                 resampleAlg='cubicspline',
                                 multithread=True,
-                                tps=True,
+                                tps=tps_flag,
                                 transformerOptions=['NUM_THREADS=ALL_CPUS']
                                 )
 
