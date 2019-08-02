@@ -69,7 +69,8 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                      outputType=output_Type,
                                      outputSRS=dst_srs,
                                      GCPs=gcp_list,
-                                     creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512']
+#                                     creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512']
+                                     creationOptions=['NUM_THREADS = ALL_CPUS']
                                      )
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
@@ -122,7 +123,6 @@ inbox = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\1_ready_to_rectify' #folde
 path_ready_to_upload = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload' #folder where all rectified files are stored
 path_trashbin_originals = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trashbin_originals' #folder where all rectified files are stored
 path_rectified_DEMs_points = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs_points' #folder where all rectified files are stored
-
 
 
  #initialize
