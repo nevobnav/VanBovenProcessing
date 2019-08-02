@@ -57,7 +57,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     output_epsg=4326
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(output_epsg)
-    dst_wkt = dst_srs.ExportToWkt()
+    # dst_wkt = dst_srs.ExportToWkt()
 
     # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned.
     if filetype == 'DEM':
@@ -67,7 +67,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     trnsopts = gdal.TranslateOptions(format='VRT',
                                      outputType=output_Type,
-                                     outputSRS=dst_wkt,
+                                     outputSRS=dst_srs,
                                      GCPs=gcp_list,
                                      creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512']
                                      )
@@ -92,8 +92,8 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     warpopts = gdal.WarpOptions(format='GTiff',
                                 outputType=output_Type,
                                 workingType=output_Type,
-                                srcSRS=dst_wkt,
-                                dstSRS=dst_wkt,
+                                srcSRS=dst_srs,
+                                dstSRS=dst_srs,
                                 dstAlpha=True,
                                 warpOptions=['NUM_THREADS=ALL_CPUS'],
                                 warpMemoryLimit=3000,
