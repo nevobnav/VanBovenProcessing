@@ -39,7 +39,6 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     with open(gcp_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         headers = next(reader)
-#        headers = next(reader)
         gcp_list = []
 
         try:
@@ -88,7 +87,11 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
     try:
+        
+        tic = time.time()
         translate_object = gdal.Translate('', input_object, options = trnsopts)
+        toc = time.time()
+        print('Translated orthomosaic in', (toc-tic), 'seconds')
     except:
         print('Failed to perform translate operation')
             
@@ -97,7 +100,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         print('Translate object returned None, check input')
 
     # remote input file & object from working memory
-    del input_object
+    input_object = None
 
     # based on no of GCPs present, define transformation algorithm
     if len(gcp_list) < 10:
@@ -123,7 +126,10 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # Perform actual warping operation -> output to specified path, filename
     try:
+        tic = time.time()
         output_object = gdal.Warp(output_file, translate_object, options = warpopts)
+        toc = time.time()
+        print('Warped orthomosaic in', (toc-tic), 'seconds')
     except:
         print('Failed to perform warp operation')
 
@@ -132,16 +138,19 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         print('Warp object returned None, check input')
     
     # delete translate object, create some memory space
-    del translate_object
-
-#    overview_object = gdal.Open(output_file, 1) # 0 = read-only, 1 = read-write.
+    translate_object = None
     
     # build internal overviews in compressed JPEG, only if ortho is processed
-    if filetype != 'DEM':
+    try:
+        tic = time.time()
         output_object.BuildOverviews("NEAREST", [8,16,32,64,128])
+        toc = time.time()
+        print('Added overviews to GeoTiff in', (toc-tic), 'seconds')
+    except:
+        print('Could not add internal overviews to output file')
 
     # clear remaining object(s) and gdal settings at end of script
-    del output_object
+    output_object = None
     
     for key, val in gdaloptions.items():
         gdal.SetConfigOption(key, None)
@@ -201,8 +210,6 @@ process_queue = sorted(files, key=lambda k: k['flight_date'])
 
 for file in process_queue:
 
-    tic = time.time()
-
     # georectify orthomosaic -> export to 'ready to upload folder'
     try:
         # translate_and_warp_tiff(input_file, gcp_file, output_file)
@@ -217,10 +224,6 @@ for file in process_queue:
         exported_DEM = True
     except:
         print('dem rechtleggen werkt niet')
-        
-
-    toc = time.time()
-    total_time = (toc-tic)
 
     # Move original (input) files to their respective folders
     if os.path.exists(path_ortho) and exported_tiff: # move original ortho
@@ -233,11 +236,9 @@ for file in process_queue:
         if exported_DEM or exported_tiff:
             shutil.move(file['path_points'], os.path.join(path_rectified_DEMs_points,file['filename'] + '.points'))
 
-# check is 'ready to rectify' folder is empty at this stage.
 
 
 ## utilities and quick check ##
-
 
 #translateoptions = gdal.TranslateOptions(gdal.ParseCommandLine("-of Gtiff -co COMPRESS=LZW"))
 #gdal.Translate(gdaloutput, gdalinput, options=translateoptions)
