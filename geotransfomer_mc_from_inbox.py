@@ -38,6 +38,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # open gcp points file and store in gcp_points
     with open(gcp_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
+        headers = next(reader)
 #        headers = next(reader)
         gcp_list = []
 
@@ -68,7 +69,6 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     
     gdal.SetCacheMax = 3000
 
-    
     # Set translation options for GDAL - hardcode reference system
     output_epsg=4326
     dst_srs = osr.SpatialReference()
@@ -83,8 +83,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     trnsopts = gdal.TranslateOptions(format='VRT',
                                      outputType=output_Type,
                                      outputSRS=dst_srs,
-                                     GCPs=gcp_list,
-#                                     creationOptions=['NUM_THREADS = ALL_CPUS']
+                                     GCPs=gcp_list
                                      )
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
@@ -208,27 +207,31 @@ for file in process_queue:
     try:
         # translate_and_warp_tiff(input_file, gcp_file, output_file)
         translate_and_warp_tiff(file['path_ortho'], file['path_points'], file['path_ortho_out'], '')
+        exported_tiff = True
     except:
         print('ortho rechtleggen werkt niet')
-
+        
     # georectify DEM -> export to 'rectified DEMs folder'
     try:
         translate_and_warp_tiff(file['path_DEM'], file['path_points'], file['path_DEM_out'], 'DEM')
+        exported_DEM = True
     except:
         print('dem rechtleggen werkt niet')
+        
 
     toc = time.time()
     total_time = (toc-tic)
 
     # Move original (input) files to their respective folders
-    if os.path.exists(path_ortho): # move original ortho
+    if os.path.exists(path_ortho) and exported_tiff: # move original ortho
         shutil.move(file['path_ortho'], os.path.join(path_trashbin_originals,file['filename'] + '.tif'))
 
-    if os.path.exists(path_DEM): # move original DEM
+    if os.path.exists(path_DEM) and exported_DEM: # move original DEM
         shutil.move(file['path_DEM'], os.path.join(path_trashbin_originals,file['filename'] + '_DEM.tif'))
 
     if os.path.exists(path_points): # move used points file
-        shutil.move(file['path_points'], os.path.join(path_rectified_DEMs_points,file['filename'] + '.points'))
+        if exported_DEM or exported_tiff:
+            shutil.move(file['path_points'], os.path.join(path_rectified_DEMs_points,file['filename'] + '.points'))
 
 # check is 'ready to rectify' folder is empty at this stage.
 
