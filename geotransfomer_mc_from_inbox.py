@@ -38,7 +38,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # open gcp points file and store in gcp_points
     with open(gcp_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
-        headers = next(reader)
+#        headers = next(reader)
         gcp_list = []
 
         try:
@@ -53,12 +53,27 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         except csv.Error as e:
             sys.exit('file {}, line {}: {}'.format(gcp_file, reader.line_num, e))
 
+    
+    # Set GDAL general and output config -- https://trac.osgeo.org/gdal/wiki/ConfigOptions
+    # act as 'global' options, cleaned at  end of script
+    
+    gdaloptions = {'COMPRESS_OVERVIEW': 'JPEG', 
+                   'PHOTOMETRIC_OVERVIEW': 'YCBR',
+                   'INTERLEAVE_OVERVIEW': 'PIXEL',
+                   'NUM_THREADS': 'ALL_CPUS'
+                   }
+    
+    for key, val in gdaloptions.items():
+        gdal.SetConfigOption(key,val)
+    
+    gdal.SetCacheMax = 3000
+
+    
     # Set translation options for GDAL - hardcode reference system
     output_epsg=4326
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(output_epsg)
-    # dst_wkt = dst_srs.ExportToWkt()
-
+    
     # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned.
     if filetype == 'DEM':
         output_Type = gdal.GDT_Float32
@@ -69,19 +84,21 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                      outputType=output_Type,
                                      outputSRS=dst_srs,
                                      GCPs=gcp_list,
-#                                     creationOptions=['NUM_THREADS = ALL_CPUS','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512']
-                                     creationOptions=['NUM_THREADS = ALL_CPUS']
+#                                     creationOptions=['NUM_THREADS = ALL_CPUS']
                                      )
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
-    translate_object = gdal.Translate('', input_object, options = trnsopts)
-
+    try:
+        translate_object = gdal.Translate('', input_object, options = trnsopts)
+    except:
+        print('Failed to perform translate operation')
+            
     # check if output is generated
     if translate_object is None:
-        print('failed to perform translate operation')
+        print('Translate object returned None, check input')
 
     # remote input file & object from working memory
-    input_object = None
+    del input_object
 
     # based on no of GCPs present, define transformation algorithm
     if len(gcp_list) < 10:
@@ -106,15 +123,30 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                 )
 
     # Perform actual warping operation -> output to specified path, filename
-    output_object = gdal.Warp(output_file, translate_object, options = warpopts)
+    try:
+        output_object = gdal.Warp(output_file, translate_object, options = warpopts)
+    except:
+        print('Failed to perform warp operation')
 
     # check if output is generated
     if output_object is None:
-        print('failed to perform warping operation')
+        print('Warp object returned None, check input')
+    
+    # delete translate object, create some memory space
+    del translate_object
 
-    # clear memmory at end of script
-    translate_object = None
-    output_object = None
+#    overview_object = gdal.Open(output_file, 1) # 0 = read-only, 1 = read-write.
+    
+    # build internal overviews in compressed JPEG, only if ortho is processed
+    if filetype != 'DEM':
+        output_object.BuildOverviews("NEAREST", [8,16,32,64,128])
+
+    # clear remaining object(s) and gdal settings at end of script
+    del output_object
+    
+    for key, val in gdaloptions.items():
+        gdal.SetConfigOption(key, None)
+    
 
     return
 
