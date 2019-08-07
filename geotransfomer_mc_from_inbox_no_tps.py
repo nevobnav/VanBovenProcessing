@@ -85,7 +85,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # based on no of GCPs present, define transformation algorithm
 #    if len(gcp_list) < 10:
-        tps_flag = False
+    tps_flag = False
 #    else:
 #        tps_flag = True
 
