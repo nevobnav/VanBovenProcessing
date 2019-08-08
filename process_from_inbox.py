@@ -316,7 +316,7 @@ for ortho in ortho_que:
     filename_ortho = os.path.splitext(filename)
     filename_ortho = filename_ortho[0]
 
-    # build check if georeferenced, different filenames
+    # define individual filenames
     if ortho['georectified']:
         filename_DEM = (filename_ortho[0:-3] + '_DEM-GR.tif')
         filename_points = (filename_ortho[0:-3] + '.points')
@@ -328,8 +328,13 @@ for ortho in ortho_que:
         filename_ortho_or = filename
         filename_DEM_or = filename_DEM
 
+    # define individual paths, based on rectified or not
+    if ortho['georectified']:
+        path_DEM = os.path.join(path_rectified_DEMs, filename_DEM)
+    elif not(ortho['georectified']):
+        path_DEM = os.path.join(path_ready_to_upload, filename_DEM)
+
     path_ortho = os.path.join(path_ready_to_upload, filename)
-    path_DEM = os.path.join(path_rectified_DEMs, filename_DEM)
     path_points = os.path.join(path_rectified_DEMs, filename_points)
 
     #Moving (georectified) ortho to archive
