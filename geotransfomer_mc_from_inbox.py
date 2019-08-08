@@ -31,9 +31,12 @@ def coords_to_pixels(input_object, x, y):
     return x_index, y_index
 
 def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
-
+    
     # read tiff with gdal
     input_object = gdal.Open(input_file)
+    
+    statement = "Starting translate and warp of: {}"
+    print(statement.format(input_file))
 
     # open gcp points file and store in gcp_points
     with open(gcp_file, newline='') as csvfile:
@@ -86,12 +89,8 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                      )
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
-    try:
-        
-        tic = time.time()
+    try:   
         translate_object = gdal.Translate('', input_object, options = trnsopts)
-        toc = time.time()
-        print('Translated orthomosaic in', (toc-tic), 'seconds')
     except:
         print('Failed to perform translate operation')
             
@@ -105,6 +104,9 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # based on no of GCPs present, define transformation algorithm
     if len(gcp_list) < 10:
         tps_flag = False
+        
+        statement = "Less than 10 ({:.0f}) GCPs found, Thin Plate Spline Interpolation disabled."
+        print(statement.format(len(gcp_list)))
     else:
         tps_flag = True
 
@@ -129,7 +131,8 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         tic = time.time()
         output_object = gdal.Warp(output_file, translate_object, options = warpopts)
         toc = time.time()
-        print('Warped orthomosaic in', (toc-tic), 'seconds')
+        statement = "Finished warping operation in {:.0f} seconds."
+        print(statement.format((toc-tic)))
     except:
         print('Failed to perform warp operation')
 
@@ -145,7 +148,8 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         tic = time.time()
         output_object.BuildOverviews("NEAREST", [8,16,32,64,128])
         toc = time.time()
-        print('Added overviews to GeoTiff in', (toc-tic), 'seconds')
+        statement = "Added overviews to GeoTiff in {:.0f} seconds."
+        print(statement.format((toc-tic)))
     except:
         print('Could not add internal overviews to output file')
 
@@ -154,6 +158,9 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     
     for key, val in gdaloptions.items():
         gdal.SetConfigOption(key, None)
+        
+    statement = "Finished translate and warp of: {}"
+    print(statement.format(input_file))
     
 
     return
