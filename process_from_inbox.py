@@ -142,7 +142,7 @@ logging.info('Time: {}\n'.format(timestr))
 
 
 #Collect available tif files and list of dicts 'orthos'
-files = [file for file in os.listdir(path_ready_to_upload) if file.endswith('.tif')]
+files = [file for file in os.listdir(path_ready_to_upload) if (file.endswith('.tif')) and not (file.endswith('_DEM.tif'))]
 logging.info('Total of {} files to process: \n'.format(len(files)))
 for file in files:
     #name convention: customer-plot-date.tif

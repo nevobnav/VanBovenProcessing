@@ -33,6 +33,7 @@ import pandas as pd
 from append_df_to_excel_file import *
 from vanbovendatabase.postgres_lib import *
 import datetime
+import numpy as np
 
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
