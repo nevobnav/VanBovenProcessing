@@ -20,6 +20,8 @@ import logging
 from vanbovendatabase.postgres_lib import *
 import datetime
 import select
+import multiprocessing
+import gdal2tiles
 
 #23 is default
 zoomlevel = 23
@@ -217,6 +219,7 @@ for ortho in ortho_que:
     #Start tiling
     logging.info('Start tiling proces for {}\n'.format(filename))
     start_tiling_time = time.time()
+
     #Identify and create file locations
     input_file = os.path.join(path_ready_to_upload,filename_clipped)
     output_folder = os.path.join(tile_output_base_dir,filename.split('.')[0])
@@ -226,15 +229,16 @@ for ortho in ortho_que:
     else:
         newtile = True
     os.mkdir(output_folder)
-    # batcmd ='python gdal2tiles.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-23 -w none --processes 16'
-    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
-    #Would be great if we can use the direct python funciton. This requires either building an options args element, or manually fixing gdal2tiles.py
-    #argv= gdal.GeneralCmdLineProcessor(['"'+str(input_file)+'"','"'+str(output_folder)+'"','--processes' ,'14' ,'-z', '16-23', '-w' ,'none'])
-    #input_file, output_folder, options = process_args(argv[1:])
-    #multi_threaded_tiling(input_file, output_folder, gdal2tiles_options)
+
+    # batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
 
     if newtile:
-        os.system(batcmd)
+        # gdal2tiles using python bindings
+        no_of_cpus = multiprocessing.cpu_count()
+        tiling_options = {'zoom': (16, zoomlevel), 'tmscompatible': True, 'nb_processes':no_of_cpus}
+        gdal2tiles.generate_tiles(input_file, output_folder, **tiling_options)
+
+        #os.system(batcmd)
 
     end_tiling_time = time.time()
 
