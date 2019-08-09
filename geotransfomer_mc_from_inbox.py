@@ -31,11 +31,11 @@ def coords_to_pixels(input_object, x, y):
     return x_index, y_index
 
 def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
-    
+
     # read tiff with gdal
     input_object = gdal.Open(input_file)
-    
-    statement = "Starting translate and warp of: {}"
+
+    statement = "\n Starting translate and warp of: {}"
     print(statement.format(input_file))
 
     # open gcp points file and store in gcp_points
@@ -56,26 +56,26 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         except csv.Error as e:
             sys.exit('file {}, line {}: {}'.format(gcp_file, reader.line_num, e))
 
-    
+
     # Set GDAL general and output config -- https://trac.osgeo.org/gdal/wiki/ConfigOptions
     # act as 'global' options, cleaned at  end of script
-    
-    gdaloptions = {'COMPRESS_OVERVIEW': 'JPEG', 
+
+    gdaloptions = {'COMPRESS_OVERVIEW': 'JPEG',
                    'PHOTOMETRIC_OVERVIEW': 'YCBR',
                    'INTERLEAVE_OVERVIEW': 'PIXEL',
                    'NUM_THREADS': 'ALL_CPUS'
                    }
-    
+
     for key, val in gdaloptions.items():
         gdal.SetConfigOption(key,val)
-    
+
     gdal.SetCacheMax = 3000
 
     # Set translation options for GDAL - hardcode reference system
     output_epsg=4326
     dst_srs = osr.SpatialReference()
     dst_srs.ImportFromEPSG(output_epsg)
-    
+
     # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned.
     if filetype == 'DEM':
         output_Type = gdal.GDT_Float32
@@ -89,11 +89,11 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
                                      )
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
-    try:   
+    try:
         translate_object = gdal.Translate('', input_object, options = trnsopts)
     except:
         print('Failed to perform translate operation')
-            
+
     # check if output is generated
     if translate_object is None:
         print('Translate object returned None, check input')
@@ -104,7 +104,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # based on no of GCPs present, define transformation algorithm
     if len(gcp_list) < 10:
         tps_flag = False
-        
+
         statement = "Less than 10 ({:.0f}) GCPs found, Thin Plate Spline Interpolation disabled."
         print(statement.format(len(gcp_list)))
     else:
@@ -139,10 +139,10 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # check if output is generated
     if output_object is None:
         print('Warp object returned None, check input')
-    
+
     # delete translate object, create some memory space
     translate_object = None
-    
+
     # build internal overviews in compressed JPEG, only if ortho is processed
     try:
         tic = time.time()
@@ -155,13 +155,13 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # clear remaining object(s) and gdal settings at end of script
     output_object = None
-    
+
     for key, val in gdaloptions.items():
         gdal.SetConfigOption(key, None)
-        
+
     statement = "Finished translate and warp of: {}"
     print(statement.format(input_file))
-    
+
 
     return
 
@@ -221,10 +221,10 @@ for file in process_queue:
     try:
         # translate_and_warp_tiff(input_file, gcp_file, output_file)
         translate_and_warp_tiff(file['path_ortho'], file['path_points'], file['path_ortho_out'], '')
-        exported_tiff = True
+        exported_ortho = True
     except:
         print('ortho rechtleggen werkt niet')
-        
+
     # georectify DEM -> export to 'rectified DEMs folder'
     try:
         translate_and_warp_tiff(file['path_DEM'], file['path_points'], file['path_DEM_out'], 'DEM')
@@ -233,14 +233,16 @@ for file in process_queue:
         print('dem rechtleggen werkt niet')
 
     # Move original (input) files to their respective folders
-    if os.path.exists(path_ortho) and exported_tiff: # move original ortho
+    if os.path.exists(path_ortho) and exported_ortho: # move original ortho
         shutil.move(file['path_ortho'], os.path.join(path_trashbin_originals,file['filename'] + '.tif'))
+        print('Moved original ortho to temp trashbin')
 
     if os.path.exists(path_DEM) and exported_DEM: # move original DEM
         shutil.move(file['path_DEM'], os.path.join(path_trashbin_originals,file['filename'] + '_DEM.tif'))
+        print('Moved original DEM to temp trashbin')
 
     if os.path.exists(path_points): # move used points file
-        if exported_DEM or exported_tiff:
+        if exported_DEM or exported_ortho:
             shutil.move(file['path_points'], os.path.join(path_rectified_DEMs_points,file['filename'] + '.points'))
 
 
