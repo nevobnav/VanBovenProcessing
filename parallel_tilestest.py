@@ -66,3 +66,24 @@ input_kml = "path/to/extent.kml"
 
 
 ds = None
+
+
+
+clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file)
+
+
+
+
+no_of_cpus = multiprocessing.cpu_count()
+vrt_file = os.path.join(ortho_ready_inbox, str(file[:-4]) + '_clipped.VRT')
+
+output_folder = r'/Users/Bas/Desktop/tiles'
+zoomlevel = 18
+
+tiling_options = {'zoom': (16, zoomlevel), 'tmscompatible': True, 'nb_processes':no_of_cpus}
+
+tic = time.time()
+gdal2tiles.generate_tiles(vrt_file, output_folder, **tiling_options)
+toc = time.time()
+
+print('total time is', toc-tic)

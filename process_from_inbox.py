@@ -14,7 +14,7 @@ import pandas as pd
 import subprocess
 import paramiko
 from clip_ortho_2_plot import clip_ortho2plot
-#from clip_ortho_2_plot_gdal import clip_ortho2plot
+from clip_ortho_2_plot_gdal import clip_ortho2plot_gdal
 
 import logging
 from vanbovendatabase.postgres_lib import *
@@ -210,7 +210,10 @@ for ortho in ortho_que:
     #clip ortho to plot shape:
     logging.info('    Clipping {}...\n'.format(filename))
     start_clip_time = time.time()
-    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+#    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+    
+    clip_ortho2plot_gdal(plot_name, con, meta, path_ready_to_upload,filename)
+    
     end_clip_time = time.time()
     clip_duration = round((end_clip_time-start_clip_time)/60)
     logging.info('    Clipped in {} minutes...\n'.format(clip_duration))
