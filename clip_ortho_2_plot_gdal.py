@@ -73,5 +73,51 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
     except: 
         statement = 'Clipping of {} failed - check used shape at ({}) and plot'
         print(statement.format(this_plot_name, shape_path))
+
+
+def clip_ortho2shp_array(input_file, clip_shp):
+
+    tic = time.time()
+    output_file = ''
+    # file and path names for temp shapefile
+    shape_path = clip_shp
+    shape_name = os.path.basename(clip_shp)[:-4]
+    
+    # load orthomosaic with GDAL
+    try:
+        input_object = gdal.Open(input_file)
+    except: 
+        print('Could not load orthomosaic, check directory.')
+        
+    try:
+        ds = gdal.Warp(output_file,
+                       input_object,
+                       format = 'VRT',
+                       cutlineDSName = shape_path,
+                       cutlineLayer = shape_name,
+                       warpOptions=['NUM_THREADS=ALL_CPUS'],
+                       multithread=True,
+                       warpMemoryLimit=3000,
+                       transformerOptions=['NUM_THREADS=ALL_CPUS']
+#                       dstAlpha= True,
+#                       srcAlpha=True,
+#                       dstNodata = 0
+                       )
+        if ds:
+            toc = time.time()
+            crop_time = toc-tic
+            statement = 'Succesfully clipped {} to plot outline in {} seconds'
+            print(statement.format(input_file, crop_time))
+            
+        else:
+            statement = 'Clipping of {} failed - check used shape at ({}) and plot'
+            print(statement.format(input_file, shape_path))
+        
+    except: 
+        statement = 'Clipping of {} failed - check used shape at ({}) and plot'
+        print(statement.format(input_file, shape_path))
+        
+    return ds
+
         
         

@@ -217,7 +217,8 @@ for ortho in ortho_que:
     end_clip_time = time.time()
     clip_duration = round((end_clip_time-start_clip_time)/60)
     logging.info('    Clipped in {} minutes...\n'.format(clip_duration))
-    filename_clipped = filename.split('.')[0]+'_clipped.'+filename.split('.')[-1]
+#    filename_clipped = filename.split('.')[0]+'_clipped.'+filename.split('.')[-1]
+    filename_clipped = filename.split('.')[0]+'_clipped.VRT'
 
     #Start tiling
     logging.info('Start tiling proces for {}\n'.format(filename))
@@ -231,14 +232,14 @@ for ortho in ortho_que:
         newtile = False
     else:
         newtile = True
-    os.mkdir(output_folder)
+        os.mkdir(output_folder)
 
     # batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
 
     if newtile:
         # gdal2tiles using python bindings
         no_of_cpus = multiprocessing.cpu_count()
-        tiling_options = {'zoom': (16, zoomlevel), 'tmscompatible': True, 'nb_processes':no_of_cpus}
+        tiling_options = {'zoom': (16, zoomlevel), 'tmscompatible': True, 'nb_processes':no_of_cpus-1}
         gdal2tiles.generate_tiles(input_file, output_folder, **tiling_options)
 
         #os.system(batcmd)
