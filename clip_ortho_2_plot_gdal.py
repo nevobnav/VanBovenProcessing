@@ -52,7 +52,10 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
                        format = 'VRT',
                        cutlineDSName = shape_path,
                        cutlineLayer = 'tempshape', 
-                       warpOptions=['NUM_THREADS=ALL_CPUS']
+                       warpOptions=['NUM_THREADS=ALL_CPUS'],
+                       multithread=True,
+                       warpMemoryLimit=3000,
+                       transformerOptions=['NUM_THREADS=ALL_CPUS']
 #                       dstAlpha= True,
 #                       srcAlpha=True,
 #                       dstNodata = 0
