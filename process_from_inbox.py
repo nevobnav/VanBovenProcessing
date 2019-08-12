@@ -7,13 +7,12 @@ import os
 from pathlib import Path
 import time
 import sys
-#import gdal2tiles
 import shutil
 import gdal
 import pandas as pd
 import subprocess
 import paramiko
-from clip_ortho_2_plot import clip_ortho2plot
+#from clip_ortho_2_plot import clip_ortho2plot
 from clip_ortho_2_plot_gdal import clip_ortho2plot_gdal
 
 import logging
@@ -177,6 +176,7 @@ ortho_que = sorted(orthos, key=lambda k: k['flight_date'])
 tile_output_base_dir = os.path.join(path_ready_to_upload,'temp_tiles')
 if not(os.path.isdir(tile_output_base_dir)):
     os.mkdir(tile_output_base_dir)
+
 #Loop trough all available tifs and tile them.
 for ortho in ortho_que:
     start_ortho_time = time.time()
@@ -239,9 +239,13 @@ for ortho in ortho_que:
     if newtile:
         # gdal2tiles using python bindings
         no_of_cpus = multiprocessing.cpu_count()
-        tiling_options = {'zoom': (16, zoomlevel), 'tmscompatible': True, 'nb_processes':no_of_cpus-1}
-        gdal2tiles.generate_tiles(input_file, output_folder, **tiling_options)
-
+        tiling_options = {'zoom': [16, zoomlevel], 'tmscompatible': True, 'nb_processes':int(no_of_cpus/2-1), 'webviewer': 'none'}
+        try:
+            gdal2tiles.generate_tiles(input_file, output_folder, **tiling_options)
+                 
+        except:
+            print('Tile generation did not work \n')
+                
         #os.system(batcmd)
 
     end_tiling_time = time.time()

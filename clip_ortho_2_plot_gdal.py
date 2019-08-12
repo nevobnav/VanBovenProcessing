@@ -6,7 +6,7 @@ Created on Tue Apr  9 11:45:07 2019
 
 import os
 from vanbovendatabase.postgres_lib import *
-import gdal
+from osgeo import gdal
 import time
 from geoalchemy2.shape import to_shape
 import geopandas as gpd
@@ -59,7 +59,7 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
         if ds:
             toc = time.time()
             crop_time = toc-tic
-            statement = 'Succesfully clipped {} to plot outline in {} seconds'
+            statement = 'Succesfully clipped {} to plot outline in {:.2f} seconds'
             print(statement.format(this_plot_name, crop_time))
             
             # clear GDAL object & remove temporary shapefile
