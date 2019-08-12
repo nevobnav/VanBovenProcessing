@@ -16,10 +16,6 @@ import shutil
 config_file_path = r'/Users/Bas/Documents/config.json'
 port = 5432
 
-# con,meta = connect(DB_USER, DB_PASSWORD, DB_NAME, host=DB_IP)
-
-#shape_file = '/Users/Bas/Desktop/test/test2.shp'
-
 def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
 
     tic = time.time()
