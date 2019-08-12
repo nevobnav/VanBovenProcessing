@@ -5,6 +5,7 @@ Created on Tue Apr  9 11:45:07 2019
 """
 
 import os
+os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing')
 from vanbovendatabase.postgres_lib import *
 from osgeo import gdal
 import time
@@ -13,7 +14,7 @@ import geopandas as gpd
 from fiona.crs import from_epsg
 import shutil
 
-config_file_path = r'/Users/Bas/Documents/config.json'
+config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
 
 def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
