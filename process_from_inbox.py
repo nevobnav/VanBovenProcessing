@@ -230,7 +230,7 @@ for ortho in ortho_que:
         newtile = True
         os.mkdir(output_folder)
         
-    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
+    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 14'
     if newtile:
         os.system(batcmd)
 #        # gdal2tiles using python bindings
