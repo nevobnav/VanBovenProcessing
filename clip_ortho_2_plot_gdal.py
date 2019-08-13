@@ -10,8 +10,9 @@ from vanbovendatabase.postgres_lib import *
 from osgeo import gdal
 import time
 from geoalchemy2.shape import to_shape
-import geopandas as gpd
-from fiona.crs import from_epsg
+from osgeo import ogr, osr
+#import geopandas as gpd
+#from fiona.crs import from_epsg
 import shutil
 
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
@@ -33,9 +34,22 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
     
     # get shape from database and store as physical shape file
     geometry = to_shape(get_plot_shape(this_plot_name, meta, con)).buffer(0.00006)
-    input_shape = gpd.GeoDataFrame({'geometry': geometry}, index=[0], crs=from_epsg(4326))
+    #input_shape = gpd.GeoDataFrame({'geometry': geometry}, index=[0], crs={'init' :'epsg:4326'})
     
-    input_shape.to_file(shape_path, driver='ESRI Shapefile')
+    driver = ogr.GetDriverByName("Esri Shapefile")
+    ds = driver.CreateDataSource(shape_path)
+    dest_srs = osr.SpatialReference()
+    dest_srs.ImportFromEPSG(4326)
+    layr1 = ds.CreateLayer('',dest_srs, ogr.wkbPolygon)
+    layr1.CreateField(ogr.FieldDefn('id', ogr.OFTInteger))    
+    defn = layr1.GetLayerDefn()    
+    feat = ogr.Feature(defn)
+    feat.SetField('id', 1)  
+    geom = ogr.CreateGeometryFromWkb(geometry.to_wkb())
+    feat.SetGeometry(geom)
+    layr1.CreateFeature(feat)
+    ds.Destroy()
+    #input_shape.to_file(shape_path, driver='ESRI Shapefile')
     
     # load orthomosaic with GDAL
     try:

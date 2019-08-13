@@ -4,13 +4,9 @@
 @author: Kaz
 """
 import os
-from pathlib import Path
 import time
-import sys
 import shutil
-import gdal
-import pandas as pd
-import subprocess
+
 import paramiko
 #from clip_ortho_2_plot import clip_ortho2plot
 from clip_ortho_2_plot_gdal import clip_ortho2plot_gdal
@@ -197,7 +193,7 @@ for ortho in ortho_que:
         scan_id, zoomlevel = scan_data[0]['scan_id'], scan_data[0]['zoomlevel']
     except:
         logging.info('      No database entry with date {}, time {} and plot {}. Quiting.'.format(flight_date, flight_time, plot_name))
-        continue
+        
 
     #Check for possible duplicate work:
     ortho_archive_target = os.path.join(ortho_archive_destination,customer_name,plot_name,flight_date,flight_time,'Orthomosaic')
@@ -205,7 +201,7 @@ for ortho in ortho_que:
         #File already exists, quiting early and logging duplicate
         logging.info('    Ortho is already present in archive. Exited after {} seconds\n'\
         .format(round(time.time() - start_ortho_time)))
-        continue
+        
 
     #clip ortho to plot shape:
     logging.info('    Clipping {}...\n'.format(filename))
@@ -223,7 +219,7 @@ for ortho in ortho_que:
     #Start tiling
     logging.info('Start tiling proces for {}\n'.format(filename))
     start_tiling_time = time.time()
-
+    
     #Identify and create file locations
     input_file = os.path.join(path_ready_to_upload,filename_clipped)
     output_folder = os.path.join(tile_output_base_dir,filename.split('.')[0])
@@ -233,20 +229,21 @@ for ortho in ortho_que:
     else:
         newtile = True
         os.mkdir(output_folder)
-
-    # batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
-
+        
+    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
     if newtile:
-        # gdal2tiles using python bindings
-        no_of_cpus = multiprocessing.cpu_count()
-        tiling_options = {'zoom': [16, zoomlevel], 'tmscompatible': True, 'nb_processes':int(no_of_cpus/2-1), 'webviewer': 'none'}
-        try:
-            gdal2tiles.generate_tiles(input_file, output_folder, **tiling_options)
-                 
-        except:
-            print('Tile generation did not work \n')
-                
-        #os.system(batcmd)
+        os.system(batcmd)
+#        # gdal2tiles using python bindings
+#        #no_of_cpus = multiprocessing.cpu_count()
+#        #tiling_options = {'zoom': [16, zoomlevel], 'tmscompatible': True, 'nb_processes':int(no_of_cpus/2-1), 'webviewer': 'none'}
+#        tiling_options = {'zoom': [16, zoomlevel], 'tmscompatible': True, 'nb_processes':1, 'webviewer': 'none'}
+#        try:
+#            gdal2tiles.generate_tiles(input_file, output_folder, **tiling_options)  
+#            continue             
+#        except:
+#            print('Tile generation did not work \n')
+#            continue
+        
 
     end_tiling_time = time.time()
 
