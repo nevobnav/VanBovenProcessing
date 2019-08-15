@@ -64,14 +64,16 @@ def copy_previous_points_file(ortho_out, processing_folder, processing_archive_p
 def get_scan_information(chunk):
     #sensor type (str)
     sensor = chunk.sensors[0]
-    camera = chunk.cameras[1]
+    #camera = chunk.cameras[1]
+    #
+    cameras = chunk.cameras
     #flying altitude (float)
     height_of_flight = np.array([camera.reference.location.z for camera in cameras]).mean()
     ortho = chunk.orthomosaic
     #gsd in meters (float)
     gsd = ortho.resolution
     #flight_datetime format: '2019:04:30 19:59:56'
-    flight_datetime = camera.photo.meta['Exif/DateTime']
+    flight_datetime = chunk.cameras[1].photo.meta['Exif/DateTime']
     #zoomlevel op basis van gsd, de grenzen zijn nu gekozen zodat 30/35 meter nog op zoomniveau 23 wordt getiled en eventuele lagere vluchten op 24/25
     zoomlevel = 23
     if gsd < 0.007 and gsd > 0.005:
