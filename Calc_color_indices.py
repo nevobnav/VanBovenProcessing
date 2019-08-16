@@ -6,7 +6,6 @@ Created on Mon May 20 20:49:27 2019
 """
 
 
-from sklearn import preprocessing
 import pandas as pd
 import os
 
@@ -18,9 +17,7 @@ import matplotlib.pyplot as plt
 import rasterio
 import geopandas as gpd
 
-from sklearn.cluster import MeanShift
-
-
+from joblib import Parallel, delayed
 import itertools
 import multiprocessing
 
@@ -31,7 +28,7 @@ import fiona
 import gdal
 from osgeo import gdalnumeric
 
-import rasterstats
+#import rasterstats
 
 os.chdir(r'C:\Users\VanBoven\Documents\GitHub\DataAnalysis')
 import color_indices
@@ -39,58 +36,6 @@ from rasterstats_multicore import *
 
 os.chdir(r'C:\Users\VanBoven\Documents\GitHub\VanBovenProcessing')
 import clip_ortho_2_plot_gdal
-
-def total_crop_area_per_gridcell(empty_grid, input_img_file, nodata_value):
-    zs_list = []
-    #count nr of valid pixels per grid cell
-    zs = rasterstats.zonal_stats(empty_grid.geometry, input_img_file, nodata = nodata_value, 
-                                 stats = 'mean')    
-    [zs_list.append(count['mean']) for count in zs]
-    # TODO to convert nr of pixels to area in metric units, first the gsd has to be determined
-    
-    #set values to grid attribute table
-    grid = empty_grid.copy()
-    grid['total_crop_area'] = zs_list      
-    return grid
-
-def ExG(b,g,r):
-    scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
-    ExG_index = np.asarray((2.0*g - b - r), dtype=np.float32)
-    #ExG_index[ExG_index < 0] = 0
-    ExG_index = np.asarray(scaler.fit_transform(ExG_index),dtype=np.uint8)    
-    return ExG_index
-
-def VARI(b,g,r):
-    scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
-    VARI_index = np.where(g+r-b != 0, ((g-r)/(g+r-b)), ((g-r)/(g+r-b)).min())
-    VARI_index[VARI_index > 1] = 0
-    VARI_index[VARI_index <-1] = 0
-    VARI_index = np.asarray(scaler.fit_transform(VARI_index), dtype=np.uint8)
-    return VARI_index
-
-def GLI(b,g,r):
-    scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
-    GLI_index = np.where(2*g+r+b != 0, ((2*g-r-b)/(2*g+r+b)), ((2*g-r-b)/(2*g+r+b)).min())
-    GLI_index[GLI_index > 1] = 0
-    GLI_index[GLI_index <-1] = 0
-    #GLI_index = np.asarray(scaler.fit_transform(GLI_index), dtype=np.uint8)
-    return GLI_index*255
-
-def visual_NDVI(b,g,r):
-    scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
-    visual_NDVI_index = np.where(g+r != 0, ((g-r)/(g+r)), ((g-r)/(g+r)).min())
-    visual_NDVI_index[visual_NDVI_index > 1] = 0
-    visual_NDVI_index[visual_NDVI_index <-1] = 0    
-    visual_NDVI_index = np.asarray(scaler.fit_transform(visual_NDVI_index), dtype=np.uint8)
-    return visual_NDVI_index    
-
-def rgbvi(b,g,r):
-    scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
-    rgbvi_index = np.where((g*g) + (r*b) != 0, (((g*g) - (r*b))/((g*g)+(r*b))), (((g*g) - (r*b))/((g*g)+(r*b))).min())
-    rgbvi_index[rgbvi_index > 1] = 0
-    rgbvi_index[rgbvi_index < -1] = 0
-    rgbvi_index = np.asarray(scaler.fit_transform(rgbvi_index), dtype = np.uint8)
-    return rgbvi_index
 
 def write_tif(img, raster, output_path, filename):
     with rasterio.open(raster) as src:
@@ -105,49 +50,74 @@ def write_tif(img, raster, output_path, filename):
     "w", **out_meta, BIGTIFF='YES',NUM_THREADS='ALL_CPUS',COMPRESS='LZW') as dest:
         dest.write(img)
 
+def chunks(data, n):
+    """Yield successive n-sized chunks from a slice-able iterable."""
+    for i in range(0, len(data), n):
+        yield data[i:i+n]
 
-raster = r"D:\VanBovenDrive\VanBoven MT\Archive\c03_termote\De Boomgaard\20190711\1144\Orthomosaic\c03_termote-De Boomgaard-201907111144-GR.tif"
-clip_shp = r"D:\VanBovenDrive\VanBoven MT\Archive\c03_termote\De Boomgaard\20190514\2005\Clip_shape\clip_shape.shp"
-#raster = r'E:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190522\1625\Orthomosaic/c03_termote-Binnendijk Links-201905221625.tif'
 
-output_path = r'D:\800 Operational\c03_termote\De Boomgaard\20190711\1144'
-#srcArray = gdalnumeric.LoadFile(raster)
+def zonal_stats_partial(feats):
+    """Wrapper for zonal stats, takes a list of features"""
+    return zonal_stats(feats, tif, all_touched=True)
+
+
+
+
+
+
+#orthomosaic to process
+raster = r"D:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190625\1610\Orthomosaic\c03_termote-Binnendijk Links-201906251610.tif"
+
+#specify clip_shp if clip_ortho2shp is true
+clip_ortho2shp = True
+#optional clip_shape
+clip_shp = r"D:\VanBovenDrive\VanBoven MT\Archive\c03_termote\Binnendijk Links\20190508\Clip_shape\Clip_shape.shp"
+#output_path
+output_path = r'D:\800 Operational\c03_termote\Binnendijk links\20190625\1610'
+#optional path to empty grid to create geojson
 grid_path = r"D:\800 Operational\c03_termote\De Boomgaard\clip_shape_empty_grid.shp"
 
+#True if  you want to fill the grid with zonal stats of the calculated VI
+zonal_stats = False
+#set no data value if zonal stats is True
+no_data_value = 255
 
+
+
+
+
+
+
+#block size for iterative processing 
 x_block_size = 5000 
 y_block_size = 5000
 
-#list to create subsest of blocks
+#list to create subset of blocks
 it = list(range(0,250, 1))
 
 # Function to read the raster as arrays for the chosen block size.
-#def process_raster2template(x_block_size, y_block_size, model, skip, it):
-tic = time.time()
-i = 0
-
 
 empty_grid = gpd.read_file(grid_path)
-no_data_value = 255
-zonal_stats = True
-clip_ortho2shp = True
 
 if clip_ortho2shp == True:
     ds = clip_ortho_2_plot_gdal.clip_ortho2shp_array(raster, clip_shp)
 else:
     ds = gdal.Open(raster)
+ds_list = [ds]
 band = ds.GetRasterBand(1)
 xsize = band.XSize
 ysize = band.YSize
 template = np.zeros([ysize, xsize], np.float32)
 #define kernel for morhpological closing operation
 blocks = 0
+tic2 = time.time()
 for y in range(0, ysize, y_block_size):
     if y + y_block_size < ysize:
         rows = y_block_size
     else:
         rows = ysize - y
     for x in range(0, xsize, x_block_size):
+        tic = time.time()
         blocks += 1
         #if statement for subset
         if blocks in it:
@@ -165,58 +135,33 @@ for y in range(0, ysize, y_block_size):
             img[:,:,2] = r
             com1 = color_indices.BGR2COM1(img)
             template[y:y+rows, x:x+cols] = template[y:y+rows, x:x+cols] + com1
+            toc = time.time()
+            print('Processing of block ' + str(blocks) + ' took '+str(toc-tic) + ' seconds')
+toc = time.time()
+print('Processing of full image took '+str(toc-tic2) + ' seconds')
 
-scaler = preprocessing.MinMaxScaler(feature_range=(0, 255))
-template = np.asarray(scaler.fit_transform(template), dtype=np.uint8)
+tic = time.time()
+#scale and resize output            
+omin = template.min(axis=(0, 1), keepdims=True)
+omax = template.max(axis=(0, 1), keepdims=True)
+template = np.array(((template - omin)/(omax - omin))*255, dtype=np.uint8)
 template.resize(1,template.shape[0],template.shape[1])
+toc = time.time()
+print('scaling and resizing took '+str(toc-tic) + ' seconds')
 
+
+#write output
 filename = os.path.basename(raster)[:-4] + '_com1.tif'
 write_tif(template, raster, output_path, filename)
 
-shp = grid_path
-tif = os.path.join(output_path, filename)
-
-with fiona.open(shp) as src:
-    features = list(src)
-
-# Create a process pool using all cores
-cores = multiprocessing.cpu_count()
-p = multiprocessing.Pool(cores)
-
-# parallel map
-stats_lists = p.map(zonal_stats_partial, chunks(features, cores))
-
-# flatten to a single list
-stats = list(itertools.chain(*stats_lists))
-
-assert len(stats) == len(features)
-
+tic = time.time()
+print('Started with calculating zonal stats...')
 if zonal_stats == True:
-input_img_file = os.path.join(output_path,os.path.basename(raster)[:-4] + '_com1.tif')
-shp, tif = rasterstats_multicore.shp_tif(grid_path, raster)
-stats = rasterstats_multicore.run_zonalstats(shp, tif)    
+    shp = grid_path
+    tif = os.path.join(output_path, filename)
 
+    input_img_file = os.path.join(output_path,os.path.basename(raster)[:-4] + '_com1.tif')
     
-    
-    #grid = total_crop_area_per_gridcell(empty_grid, input_img_file, no_data_value)
-    #grid.to_file(os.path.join(output_path, filename[:-4]+'_ZS.tif'))
-
-
-
-
-def chunks(data, n):
-    """Yield successive n-sized chunks from a slice-able iterable."""
-    for i in range(0, len(data), n):
-        yield data[i:i+n]
-
-
-def zonal_stats_partial(feats):
-    """Wrapper for zonal stats, takes a list of features"""
-    return zonal_stats(feats, tif, all_touched=True)
-
-
-if __name__ == "__main__":
-
     with fiona.open(shp) as src:
         features = list(src)
 
@@ -231,9 +176,24 @@ if __name__ == "__main__":
     stats = list(itertools.chain(*stats_lists))
 
     assert len(stats) == len(features)
+    toc = time.time()
+    print('Finished calculating zonal stats in ' + str(toc-tic) + ' seconds')
 
-
-
+# =============================================================================
+# def total_crop_area_per_gridcell(empty_grid, input_img_file, nodata_value):
+#     zs_list = []
+#     #count nr of valid pixels per grid cell
+#     zs = rasterstats.zonal_stats(empty_grid.geometry, input_img_file, nodata = nodata_value, 
+#                                  stats = 'mean')    
+#     [zs_list.append(count['mean']) for count in zs]
+#     # TODO to convert nr of pixels to area in metric units, first the gsd has to be determined
+#     
+#     #set values to grid attribute table
+#     grid = empty_grid.copy()
+#     grid['total_crop_area'] = zs_list      
+#     return grid
+# 
+# =============================================================================
 
             #cv2.imwrite(r'E:\400 Data analysis\410 Plant count\c01_verdonk\Rijweg stalling 2\blocks\rijwegstalling2_blocks_'+str(x)+'-'+str(y)+'.jpg',img)     
             #array = ds.ReadAsArray(x, y, cols, rows)
