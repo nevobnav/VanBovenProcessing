@@ -32,6 +32,8 @@ def coords_to_pixels(input_object, x, y):
 
 def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
+    start_time = time.time()
+
     # read tiff with gdal
     input_object = gdal.Open(input_file)
 
@@ -60,14 +62,14 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # Set GDAL general and output config -- https://trac.osgeo.org/gdal/wiki/ConfigOptions
     # act as 'global' options, cleaned at  end of script
 
-    gdaloptions = {'COMPRESS_OVERVIEW': 'JPEG',
-                   'PHOTOMETRIC_OVERVIEW': 'YCBR',
-                   'INTERLEAVE_OVERVIEW': 'PIXEL',
-                   'NUM_THREADS': 'ALL_CPUS'
-                   }
-
-    for key, val in gdaloptions.items():
-        gdal.SetConfigOption(key,val)
+    # gdaloptions = {'COMPRESS_OVERVIEW': 'JPEG',
+    #                'PHOTOMETRIC_OVERVIEW': 'YCBR',
+    #                'INTERLEAVE_OVERVIEW': 'PIXEL',
+    #                'NUM_THREADS': 'ALL_CPUS'
+    #                }
+    #
+    # for key, val in gdaloptions.items():
+    #     gdal.SetConfigOption(key,val)
 
     gdal.SetCacheMax = 3000
 
@@ -111,28 +113,29 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         tps_flag = True
 
     # Set warping options for GDAL
-    warpopts = gdal.WarpOptions(format='GTiff',
+    warpopts = gdal.WarpOptions(format='VRT',
                                 outputType=output_Type,
                                 workingType=output_Type,
-                                srcSRS=dst_srs,
-                                dstSRS=dst_srs,
-                                dstAlpha=True,
+                                # srcSRS=dst_srs,
+                                # dstSRS=dst_srs,
+                                # dstAlpha=True,
                                 warpOptions=['NUM_THREADS=ALL_CPUS'],
+                                creationOptions = ['NUM_THREADS=ALL_CPUS', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512'],
+                                transformerOptions=['NUM_THREADS=ALL_CPUS'],
                                 warpMemoryLimit=3000,
-                                creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'ALPHA=YES'],
+                                # creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'ALPHA=YES'],
                                 resampleAlg='cubicspline',
                                 multithread=True,
-                                tps=tps_flag,
-                                transformerOptions=['NUM_THREADS=ALL_CPUS']
+                                tps=tps_flag
                                 )
 
     # Perform actual warping operation -> output to specified path, filename
     try:
-        tic = time.time()
+        # tic = time.time()
         output_object = gdal.Warp(output_file, translate_object, options = warpopts)
-        toc = time.time()
-        statement = "Finished warping operation in {:.0f} seconds."
-        print(statement.format((toc-tic)))
+        # toc = time.time()
+        # statement = "Finished warping operation in {:.0f} seconds."
+        # print(statement.format((toc-tic)))
     except:
         print('Failed to perform warp operation')
 
@@ -144,23 +147,26 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     translate_object = None
 
     # build internal overviews in compressed JPEG, only if ortho is processed
-    try:
-        tic = time.time()
-        output_object.BuildOverviews("NEAREST", [8,16,32,64,128])
-        toc = time.time()
-        statement = "Added overviews to GeoTiff in {:.0f} seconds."
-        print(statement.format((toc-tic)))
-    except:
-        print('Could not add internal overviews to output file')
+    # try:
+    #     tic = time.time()
+    #     output_object.BuildOverviews("NEAREST", [8,16,32,64,128])
+    #     toc = time.time()
+    #     statement = "Added overviews to GeoTiff in {:.0f} seconds."
+    #     print(statement.format((toc-tic)))
+    # except:
+    #     print('Could not add internal overviews to output file')
 
     # clear remaining object(s) and gdal settings at end of script
     output_object = None
+    #
+    # for key, val in gdaloptions.items():
+    #     gdal.SetConfigOption(key, None)
 
-    for key, val in gdaloptions.items():
-        gdal.SetConfigOption(key, None)
+    end_time = time.time()
+    total_time = end_time - start_time
 
-    statement = "Finished translate and warp of: {}"
-    print(statement.format(input_file))
+    statement = "Finished translate and warp of: {} in {:.0f} seconds "
+    print(statement.format(input_file), total_time)
 
 
     return
@@ -172,7 +178,7 @@ path_trashbin_originals = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trash
 path_rectified_DEMs_points = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs_points' #folder where all rectified files are stored
 
 
- #initialize
+# initialize
 files = []
 ortho_count = 0
 duplicate = 0
@@ -203,8 +209,9 @@ for ortho in orthos:
         this_date = this_datetime[0:-4]
         this_time = this_datetime[-4::]
 
-        path_ortho_out = os.path.join(path_ready_to_upload, filename[0] + '-GR.tif' )
-        path_DEM_out = os.path.join(path_rectified_DEMs_points, filename[0] + '_DEM-GR.tif')
+        # output paths of files to produce
+        path_ortho_out = os.path.join(path_ready_to_upload, filename[0] + '-GR.VRT' )
+        path_DEM_out = os.path.join(path_rectified_DEMs_points, filename[0] + '_DEM-GR.VRT')
 
         queue = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":filename[0],
                  "path_ortho": path_ortho, "path_DEM": path_DEM, "path_points": path_points,

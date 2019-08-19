@@ -59,30 +59,6 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
         print('Could not load orthomosaic, check directory.')
 
     try:
-#         ds = gdal.Warp(output_file,
-#                        input_object,
-#                        format = 'VRT',
-#                        cutlineDSName = shape_path,
-#                        cutlineLayer = 'tempshape',
-#                        warpOptions=['NUM_THREADS=ALL_CPUS'],
-#                        multithread=True,
-#                        warpMemoryLimit=3000,
-#                        transformerOptions=['NUM_THREADS=ALL_CPUS']
-# #                       dstAlpha= True,
-# #                       srcAlpha=True,
-# #                       dstNodata = 0
-#                        )
-
-        # output_epsg=4326
-        # dst_srs = osr.SpatialReference()
-        # dst_srs.ImportFromEPSG(output_epsg)
-
-        # check if filetype is a DEM, use 32bit signed, otherwise 8-bit unsigned.
-        # if filetype == 'DEM':
-        #     output_Type = gdal.GDT_Float32
-        # else:
-        #     output_Type = gdal.GDT_Byte
-
         warpopts = gdal.WarpOptions(format='GTiff',
                                     # outputType=output_Type,
                                     # workingType=output_Type,
