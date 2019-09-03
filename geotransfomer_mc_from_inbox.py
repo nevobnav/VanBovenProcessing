@@ -16,6 +16,7 @@ import datetime
 import os
 import shutil
 
+
 def coords_to_pixels(input_object, x, y):
     # The information is returned as tuple:
     # (TL x, X resolution, X rotation, TL y, Y rotation, y resolution)
@@ -31,7 +32,7 @@ def coords_to_pixels(input_object, x, y):
     return x_index, y_index
 
 def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
-
+    
     # read tiff with gdal
     input_object = gdal.Open(input_file)
 
@@ -70,6 +71,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
         gdal.SetConfigOption(key,val)
 
     gdal.SetCacheMax = 3000
+    prog_func = gdal.TermProgress   # progress bar from GDAL
 
     # Set translation options for GDAL - hardcode reference system
     output_epsg=4326
@@ -90,7 +92,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
     try:
-        translate_object = gdal.Translate('', input_object, options = trnsopts)
+        translate_object = gdal.Translate('', input_object, options = trnsopts, callback=prog_func)
     except:
         print('Failed to perform translate operation')
 
@@ -129,7 +131,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     # Perform actual warping operation -> output to specified path, filename
     try:
         tic = time.time()
-        output_object = gdal.Warp(output_file, translate_object, options = warpopts)
+        output_object = gdal.Warp(output_file, translate_object, options = warpopts, callback=prog_func)
         toc = time.time()
         statement = "Finished warping operation in {:.0f} seconds."
         print(statement.format((toc-tic)))
