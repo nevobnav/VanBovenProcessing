@@ -94,6 +94,7 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
                                     creationOptions=['COMPRESS=LZW','TILED=YES', 'BLOCKXSIZE=512', 'BLOCKYSIZE=512', 'NUM_THREADS=ALL_CPUS', 'JPEG_QUALITY=100', 'BIGTIFF=YES', 'ALPHA=YES'],
                                     resampleAlg='cubicspline',
                                     multithread=True,
+                                    dstNodata = 255,
                                     transformerOptions=['NUM_THREADS=ALL_CPUS'],
                                     cutlineDSName = shape_path,
                                     cutlineLayer = 'tempshape',
@@ -145,10 +146,10 @@ def clip_ortho2shp_array(input_file, clip_shp):
                        warpOptions=['NUM_THREADS=ALL_CPUS'],
                        multithread=True,
                        warpMemoryLimit=3000,
+                       dstNodata = 255,
                        transformerOptions=['NUM_THREADS=ALL_CPUS']
 #                       dstAlpha= True,
 #                       srcAlpha=True,
-#                       dstNodata = 0
                        )
         if ds:
             toc = time.time()
