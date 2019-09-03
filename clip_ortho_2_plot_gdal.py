@@ -20,6 +20,8 @@ port = 5432
 
 def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
 
+    progress_function = gdal.TermProgress   # progress bar from GDAL
+
     tic = time.time()
 
     input_file = os.path.join(ortho_ready_inbox,file)
@@ -102,7 +104,8 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
         # perform warp operation
         ds = gdal.Warp(output_file,
                        input_object,
-                       options = warpopts
+                       options = warpopts,
+                       callback = progress_function
                        )
         if ds:
             toc = time.time()
@@ -124,6 +127,8 @@ def clip_ortho2plot_gdal(this_plot_name, con, meta, ortho_ready_inbox, file):
 
 
 def clip_ortho2shp_array(input_file, clip_shp):
+
+    progress_function = gdal.TermProgress   # progress bar from GDAL
 
     tic = time.time()
     output_file = ''
@@ -147,7 +152,8 @@ def clip_ortho2shp_array(input_file, clip_shp):
                        multithread=True,
                        warpMemoryLimit=3000,
                        dstNodata = 255,
-                       transformerOptions=['NUM_THREADS=ALL_CPUS']
+                       transformerOptions=['NUM_THREADS=ALL_CPUS'],
+                       callback = progress_function
 #                       dstAlpha= True,
 #                       srcAlpha=True,
                        )
