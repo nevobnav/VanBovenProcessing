@@ -232,7 +232,7 @@ for ortho in ortho_que:
         os.mkdir(output_folder)
 
     # make bat string for parallel gdal2tiles
-    if intensity_flag = 'low':
+    if intensity_flag == 'low':
         batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 14'
     else:
         batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 2'
