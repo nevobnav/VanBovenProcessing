@@ -34,12 +34,17 @@ def coords_to_pixels(input_object, x, y):
 def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
     
     # read tiff with gdal
-    input_object = gdal.Open(input_file)
+    input_object = gdal.Open(input_file,1)
 
     statement = "\n Starting translate and warp of: {}"
     print(statement.format(input_file))
 
-    # open gcp points file and store in gcp_points
+
+    # check if GCPs already exist. If so, remove. 
+    if len(input_object.GetGCPs()) > 0:
+        input_object.SetGeoTransform([0, 0, 0, 0, 0, 0])
+
+    # open gcp points file and store in gcp_list
     with open(gcp_file, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         headers = next(reader)
@@ -92,7 +97,7 @@ def translate_and_warp_tiff(input_file, gcp_file, output_file, filetype):
 
     # Perform translate operation with GDAL -> output is VRT stored in system memory
     try:
-        translate_object = gdal.Translate('', input_object, options = trnsopts, callback=prog_func)
+        translate_object = gdal.Translate('', input_object, options = trnsopts)
     except:
         print('Failed to perform translate operation')
 

@@ -20,6 +20,7 @@ import gdal2tiles
 
 #23 is default
 zoomlevel = 23
+low_intensity_flag = sys.argv[1]
 
 ## FUNCTIONS ##
 
@@ -231,7 +232,11 @@ for ortho in ortho_que:
         os.mkdir(output_folder)
 
     # make bat string for parallel gdal2tiles
-    batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 14'
+    if intensity_flag = 'low':
+        batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 14'
+    else:
+        batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 2'
+
     # old_batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
 
 
