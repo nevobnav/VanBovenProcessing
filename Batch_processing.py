@@ -157,7 +157,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     # - Alignment accuracy in [HighestAccuracy, HighAccuracy, MediumAccuracy, LowAccuracy, LowestAccuracy]
     # - Image pair preselection in [ReferencePreselection, GenericPreselection, NoPreselection]
     tic = time.clock()
-    chunk.matchPhotos(accuracy=Metashape.HighestAccuracy, preselection=Metashape.ReferencePreselection, filter_mask=False, keypoint_limit=40000, tiepoint_limit=4000)
+    chunk.matchPhotos(accuracy=Metashape.MediumAccuracy, preselection=Metashape.ReferencePreselection, filter_mask=False, keypoint_limit=40000, tiepoint_limit=4000)
     chunk.alignCameras(adaptive_fitting=True)
 
     #iteratively align images until at least 97% is aligned
