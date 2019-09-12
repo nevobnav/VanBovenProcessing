@@ -63,7 +63,7 @@ steps_to_uploads = 6
 #the last number of days to process, standard only the last week is considered for new uploads
 nr_of_days_to_process = 14
 #the maximum time in seconds allowed between images to be considered from the same flight
-max_time_diff = 1800
+max_time_diff = 3600
 #minimum nr of images per ha needed to process a flight
 min_nr_of_images_per_ha = 30
 #db connection info
@@ -340,7 +340,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 output.index = output['Groupby_nr']
                 #Loop through clustered_images per plot
                 multiple_outputs = []
-                
+
                 #for j in range(output.index.max()+1):
                 group_df = pd.DataFrame()
                 groups = output.groupby(output.index)
@@ -352,20 +352,20 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 group_df['Alt_diff'] = group_df.mean_alt.diff()
                 group_list = np.zeros((len(group_df)), dtype = np.uint8)
                 for k in range(len(group_df)):
-                    if k == 0: 
+                    if k == 0:
                         group_list[k] = 0
                     if k > 0:
                         if abs(group_df.mean_alt.iloc[k] - group_df.mean_alt.iloc[k-1]) < 5 and (group_df.Time_after_previous.iloc[k] < max_time_diff):
-                            group_list[k] = group_list[k-1].copy()            
+                            group_list[k] = group_list[k-1].copy()
                         else:
                             group_list[k] = group_list[k-1].copy()+1
                 group_df['new_group'] = group_list
                 groups = group_df.new_group.unique()
                 for group in groups:
-                    index_nrs = group_df.index[group_df['new_group'] == group]                       
+                    index_nrs = group_df.index[group_df['new_group'] == group]
                     images_out = output.loc[index_nrs]
                     multiple_outputs.append(images_out)
-                """  
+                """
                 for j in range(output['Groupby_nr'].max()+1):
                     subset = pd.DataFrame(output[output['Groupby_nr'] == j])
                     if len(subset) < 10:
