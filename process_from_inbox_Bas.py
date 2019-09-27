@@ -21,7 +21,7 @@ import gdal2tiles
 
 #23 is default
 zoomlevel = 23
-low_intensity_flag = sys.argv[1]
+intensity_flag = sys.argv[1]
 
 ## FUNCTIONS ##
 
