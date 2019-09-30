@@ -304,6 +304,7 @@ for ortho in ortho_que:
 
 
     #unzip file to the right dir and remove archive
+
     remote_unzip_location = '/home/ubuntu/media/data/' + customer_name + '/' + plot_name +'/' +  flight_date + flight_time
     #Specify bash ssh commands
     command_unzip = 'unzip ' + "'"+ full_remote_zip_path + "'" + ' -d ' + "'" + remote_unzip_location + "'"
@@ -313,6 +314,13 @@ for ortho in ortho_que:
     #Create folders and execute commands
     mkpath(sftp,remote_unzip_location)
 
+    #Clear out folder in case old tiles are present
+    try:
+        command_empty_folder = 'rm -rf ' + remote_unzip_location + '*'
+        logging.info('clearing out {}'.format(command_empty_folder))
+        exec_ssh(ssh, command_empty_folder)
+    except Exception as e:
+        logging.info('error in logging script {}'.format(e))
 
     start_zip_time = time.time()
 
