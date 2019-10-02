@@ -311,16 +311,17 @@ for ortho in ortho_que:
     command_removezip = 'rm ' + "'"+ full_remote_zip_path + "'"
 
     logging.info('unzipping {}'.format(command_unzip))
-    #Create folders and execute commands
-    mkpath(sftp,remote_unzip_location)
 
     #Clear out folder in case old tiles are present
     try:
-        command_empty_folder = 'rm -rf ' + remote_unzip_location + ' *'
+        command_empty_folder = 'rm -r ' + remote_unzip_location
         logging.info('clearing out {}'.format(command_empty_folder))
         exec_ssh(ssh, command_empty_folder)
     except Exception as e:
         logging.info('error in logging script {}'.format(e))
+
+    #Create folders and execute commands
+    mkpath(sftp,remote_unzip_location)
 
     start_zip_time = time.time()
 
