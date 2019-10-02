@@ -316,7 +316,7 @@ for ortho in ortho_que:
 
     #Clear out folder in case old tiles are present
     try:
-        command_empty_folder = 'rm -rf ' + remote_unzip_location + '*'
+        command_empty_folder = 'rm -rf ' + remote_unzip_location + ' *'
         logging.info('clearing out {}'.format(command_empty_folder))
         exec_ssh(ssh, command_empty_folder)
     except Exception as e:
@@ -328,7 +328,7 @@ for ortho in ortho_que:
     end_zip_time = time.time()
     logging.info('    Unzipped in {} seconds. \n'.format(end_zip_time - start_zip_time))
 
-    logging.info('deleting {}. \n'.format(remote_unzip_location))
+    logging.info('deleting {}. \n'.format(full_remote_zip_path))
     #delete zip file from webserver
     start_delete_time = time.time()
     exec_ssh(ssh,command_removezip)
