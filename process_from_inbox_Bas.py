@@ -150,6 +150,7 @@ for file in files:
         # 2) rectified: customer-plot-date.tif AND customer-plot-date-GR.vrt exists    tif_count +=1
 
     test = file.split('-')
+    
 
     if len(test) == 3:
         this_customer_name,this_plot_name,this_datetime = file.split('-')
@@ -168,13 +169,16 @@ for file in files:
 
     if len(test) == 4:
         dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": True}
+        ('    {}: {}\n'.format(str(tif_count),file))
+        orthos.append(dict)
     elif len(test) == 3:
         # if a tiff not rectified, the VRT should NOT exist
-        if os.path.isfile(file.endswith('.tif')) and not os.path.isfile(file.endswith('-GR.vrt')):
-            dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
-
-    ('    {}: {}\n'.format(str(tif_count),file))
-    orthos.append(dict)
+        if os.path.isfile(file.endswith('.tif')):
+            checkname = file.replace('.tif', '-GR.vrt')
+            if checkname not in files:
+                dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
+                ('    {}: {}\n'.format(str(tif_count),file))
+                orthos.append(dict)
 
 ortho_que = sorted(orthos, key=lambda k: k['flight_date'])
 
