@@ -141,11 +141,14 @@ logging.info('Time: {}\n'.format(timestr))
 
 
 #Collect available tif files and list of dicts 'orthos'
-files = [file for file in os.listdir(path_ready_to_upload) if (file.endswith('.tif')) and not (file.endswith('_DEM.tif'))]
+files = [file for file in os.listdir(path_ready_to_upload) if (file.endswith('.tif')) or (file.endswith('.vrt')) and not (file.endswith('_DEM.tif'))]
 logging.info('Total of {} files to process: \n'.format(len(files)))
 for file in files:
-    #name convention: customer-plot-date.tif
-    tif_count +=1
+
+    # 2 scenario's for naming convention:
+        # 1) not rectified: only customer-plot-date.tif exists
+        # 2) rectified: customer-plot-date.tif AND customer-plot-date-GR.vrt exists    tif_count +=1
+
     test = file.split('-')
 
     if len(test) == 3:
@@ -158,7 +161,7 @@ for file in files:
     this_datetime = this_datetime.replace('_clipped','') #removes the _clipped addition if present
     this_date = this_datetime[0:8]
     this_time = this_datetime[8:13]
-    
+
     #Fix cases where no time is available in the file name:
     if len(this_time) == 0:
         this_time = '0200'
@@ -166,7 +169,9 @@ for file in files:
     if len(test) == 4:
         dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": True}
     elif len(test) == 3:
-        dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
+        # if a tiff not rectified, the VRT should NOT exist
+        if os.path.isfile(file.endswith('.tif')) and not os.path.isfile(file.endswith('-GR.vrt')):
+            dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
 
     ('    {}: {}\n'.format(str(tif_count),file))
     orthos.append(dict)
@@ -213,13 +218,11 @@ for ortho in ortho_que:
 
     #clip ortho to plot shape, if clipped file isnt already in the folder:
     logging.info('    Clipping {}...\n'.format(filename))
-#    filename_clipped = filename.split('.')[0]+'_clipped.'+filename.split('.')[-1]
     filename_clipped = filename.split('.')[0]+'_clipped.tif'
 
     start_clip_time = time.time()
 
     if not(os.path.exists(os.path.join(path_ready_to_upload,filename_clipped))):
-#        clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
         clip_ortho2plot_gdal(plot_name, con, meta, path_ready_to_upload,filename)
 
     end_clip_time = time.time()
@@ -234,7 +237,7 @@ for ortho in ortho_que:
     #Identify and create file locations
     input_file = os.path.join(path_ready_to_upload,filename_clipped)
     output_folder = os.path.join(tile_output_base_dir,filename.split('.')[0])
-    
+
     #DEBUGGIN: Skip if already tiled
     if os.path.exists(output_folder+'.zip'):
         newtile = False
@@ -249,9 +252,6 @@ for ortho in ortho_que:
     else:
         batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 2'
 
-    # old_batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
-
-
     if newtile:
         os.system(batcmd)
 #        # gdal2tiles using python bindings
@@ -264,7 +264,6 @@ for ortho in ortho_que:
 #        except:
 #            print('Tile generation did not work \n')
 #            continue
-
 
         end_tiling_time = time.time()
 
@@ -361,19 +360,21 @@ for ortho in ortho_que:
 
     # define individual filenames
     if ortho['georectified']:
-        filename_DEM = (filename_ortho[0:-3] + '_DEM-GR.tif')
-        filename_points = (filename_ortho[0:-3] + '.points')
-        filename_ortho_or = (filename_ortho[0:-3] + '.tif')
-        filename_DEM_or = (filename_ortho[0:-3] + '_DEM.tif')
+        filename_ortho_or   = (filename_ortho[0:-3] + '.tif')
+        filename_DEM_or     = (filename_ortho[0:-3] + '_DEM.tif')
+        filename_ortho_vrt  = (filename_ortho[0:-3] + '-GR.vrt')
+        filename_DEM        = (filename_ortho[0:-3] + '_DEM-GR.vrt')
+        filename_points     = (filename_ortho[0:-3] + '.points')
     elif not(ortho['georectified']):
-        filename_DEM = (filename_ortho + '_DEM.tif')
-        filename_points = (filename_ortho + '.points')
-        filename_ortho_or = filename
-        filename_DEM_or = filename_DEM
+        filename_ortho_or   = filename
+        filename_DEM_or     = filename_DEM
+        filename_DEM        = (filename_ortho + '_DEM.tif')
+        filename_points     = (filename_ortho + '.points')
 
     # define individual paths, based on rectified or not
     if ortho['georectified']:
         path_DEM = os.path.join(path_rectified_DEMs, filename_DEM)
+        path_DEM_or = os.path.join(path_rectified_DEMs, filename_DEM_or)
     elif not(ortho['georectified']):
         path_DEM = os.path.join(path_ready_to_upload, filename_DEM)
 
@@ -383,10 +384,17 @@ for ortho in ortho_que:
     #Moving (georectified) ortho to archive
     if not(os.path.isdir(ortho_archive_target)):
         os.makedirs(ortho_archive_target)
-    shutil.move(path_ortho,os.path.join(ortho_archive_target,filename))
+
+    if ortho['georectified']:
+        shutil.move(path_ortho,os.path.join(ortho_archive_target,filename_ortho_vrt))
+        shutil.move(path_ortho,os.path.join(ortho_archive_target,filename_ortho_or))
+    elif not(ortho['georectified']):
+        shutil.move(path_ortho,os.path.join(ortho_archive_target,filename))
 
     #Moving (georectified) DEM to archive if present
     if os.path.exists(path_DEM):
+        shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM_or))
+    if ortho['georectified']:
         shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM))
 
     #Moving .points file to archive if present
@@ -394,16 +402,16 @@ for ortho in ortho_que:
         shutil.move(path_points,os.path.join(ortho_archive_target,filename_points))
 
     # Clear out trashbin_originals as all files have been processed, only in case of rectified stuff
-    if ortho['georectified']:
-        try:
-            os.remove(os.path.join(path_trashbin_originals, filename_ortho_or))
-        except:
-            print('removing original ortho from trashbin did not happen')
-
-        try:
-            os.remove(os.path.join(path_trashbin_originals, filename_DEM_or))
-        except:
-            print('removing original DEM from trashbin did not happen')
+    # if ortho['georectified']:
+    #     try:
+    #         os.remove(os.path.join(path_trashbin_originals, filename_ortho_or))
+    #     except:
+    #         print('removing original ortho from trashbin did not happen')
+    #
+    #     try:
+    #         os.remove(os.path.join(path_trashbin_originals, filename_DEM_or))
+    #     except:
+    #         print('removing original DEM from trashbin did not happen')
 
     # Remove clipped ortho
     os.remove(os.path.join(path_ready_to_upload, filename_clipped))
