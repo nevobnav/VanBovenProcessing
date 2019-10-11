@@ -155,8 +155,13 @@ for file in files:
 
     this_datetime = this_datetime.split('.')[0]
     this_datetime = this_datetime.split('(')[0] #Splits of brackets for duplicates if present
-    this_date = this_datetime[0:-4]
-    this_time = this_datetime[-4::]
+    this_datetime = this_datetime.replace('_clipped','') #removes the _clipped addition if present
+    this_date = this_datetime[0:8]
+    this_time = this_datetime[8:13]
+    
+    #Fix cases where no time is available in the file name:
+    if len(this_time) == 0:
+        this_time = '0200'
 
     if len(test) == 4:
         dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": True}
@@ -195,6 +200,7 @@ for ortho in ortho_que:
         scan_id, zoomlevel = scan_data[0]['scan_id'], scan_data[0]['zoomlevel']
     except:
         logging.info('      No database entry with date {}, time {} and plot {}. Quiting.'.format(flight_date, flight_time, plot_name))
+        pass
 
 
     #Check for possible duplicate work:
@@ -205,18 +211,21 @@ for ortho in ortho_que:
         .format(round(time.time() - start_ortho_time)))
 
 
-    #clip ortho to plot shape:
+    #clip ortho to plot shape, if clipped file isnt already in the folder:
     logging.info('    Clipping {}...\n'.format(filename))
-    start_clip_time = time.time()
-#    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+#    filename_clipped = filename.split('.')[0]+'_clipped.'+filename.split('.')[-1]
+    filename_clipped = filename.split('.')[0]+'_clipped.tif'
 
-    clip_ortho2plot_gdal(plot_name, con, meta, path_ready_to_upload,filename)
+    start_clip_time = time.time()
+
+    if not(os.path.exists(os.path.join(path_ready_to_upload,filename_clipped))):
+#        clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
+        clip_ortho2plot_gdal(plot_name, con, meta, path_ready_to_upload,filename)
 
     end_clip_time = time.time()
     clip_duration = round((end_clip_time-start_clip_time)/60)
     logging.info('    Clipped in {} minutes...\n'.format(clip_duration))
-#    filename_clipped = filename.split('.')[0]+'_clipped.'+filename.split('.')[-1]
-    filename_clipped = filename.split('.')[0]+'_clipped.tif'
+
 
     #Start tiling
     logging.info('Start tiling proces for {}\n'.format(filename))
@@ -225,9 +234,11 @@ for ortho in ortho_que:
     #Identify and create file locations
     input_file = os.path.join(path_ready_to_upload,filename_clipped)
     output_folder = os.path.join(tile_output_base_dir,filename.split('.')[0])
+    
     #DEBUGGIN: Skip if already tiled
-    if os.path.isdir(output_folder):
+    if os.path.exists(output_folder+'.zip'):
         newtile = False
+        logging.info('   Tiles already present, skip tiling')
     else:
         newtile = True
         os.mkdir(output_folder)
@@ -255,18 +266,21 @@ for ortho in ortho_que:
 #            continue
 
 
-    end_tiling_time = time.time()
+        end_tiling_time = time.time()
 
-    logging.info('    Tiled in {} minutes \n'.format(round((end_tiling_time-start_tiling_time)/60)))
+        logging.info('    Tiled in {} minutes \n'.format(round((end_tiling_time-start_tiling_time)/60)))
 
-    #Zip ortho folders
-    #provide make_archive with the location of the just created tile folder
-    logging.info('    Zipping tiles to {}...\n'.format(output_folder))
-    local_zipfile = shutil.make_archive(output_folder, 'zip', output_folder)
+        #Zip ortho folders
+        #provide make_archive with the location of the just created tile folder
+        logging.info('    Zipping tiles to {}...\n'.format(output_folder))
+        local_zipfile = shutil.make_archive(output_folder, 'zip', output_folder)
 
-    #Clean up by removing the original folder. rmtree permanently removes them - be warned.
-    logging.info('    Removing original tiles \n')
-    shutil.rmtree(output_folder)
+        #Clean up by removing the original folder. rmtree permanently removes them - be warned.
+        logging.info('    Removing original tiles \n')
+        shutil.rmtree(output_folder)
+
+    else:
+        local_zipfile = output_folder + '.zip'
 
     ## Uploading ##
     logging.info('    Preparing to upload.\n')
@@ -314,11 +328,12 @@ for ortho in ortho_que:
 
     #Clear out folder in case old tiles are present
     try:
-        command_empty_folder = 'rm -r ' + remote_unzip_location
-        logging.info('clearing out {}'.format(command_empty_folder))
-        exec_ssh(ssh, command_empty_folder)
+        command_remove_folder = 'rm -r ' + remote_unzip_location
+        logging.info('clearing out {}'.format(command_remove_folder))
+        remove_folder_output = exec_ssh(ssh, command_remove_folder)
+        logging.info('Removed folder {}'.format(str(remove_folder_output)))
     except Exception as e:
-        logging.info('error in logging script {}'.format(e))
+        logging.info('Error while removing image folder: {}'.format(e))
 
     #Create folders and execute commands
     mkpath(sftp,remote_unzip_location)
