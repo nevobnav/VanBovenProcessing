@@ -146,7 +146,7 @@ logging.info('Total of {} files to process: \n'.format(len(files)))
 for file in files:
     #name convention: customer-plot-date.tif
 
-    # 3 scenario's:
+    # 2 scenario's:
         # 1) not rectified: only customer-plot-date.tif exists
         # 2) rectified: customer-plot-date.tif AND customer-plot-date-GR.vrt exists
 
@@ -211,18 +211,15 @@ for ortho in ortho_que:
         logging.info('    Ortho is already present in archive. Exited after {} seconds\n'\
         .format(round(time.time() - start_ortho_time)))
 
-
     #clip ortho to plot shape:
     logging.info('    Clipping {}...\n'.format(filename))
     start_clip_time = time.time()
-#    clip_ortho2plot(plot_name, con, meta, path_ready_to_upload,filename)
 
     clip_ortho2plot_gdal(plot_name, con, meta, path_ready_to_upload,filename)
 
     end_clip_time = time.time()
     clip_duration = round((end_clip_time-start_clip_time)/60)
     logging.info('    Clipped in {} minutes...\n'.format(clip_duration))
-#    filename_clipped = filename.split('.')[0]+'_clipped.'+filename.split('.')[-1]
     filename_clipped = filename.split('.')[0]+'_clipped.tif'
 
     #Start tiling
@@ -245,9 +242,6 @@ for ortho in ortho_que:
     else:
         batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms' +' --processes 2'
 
-    # old_batcmd ='python gdal2tilesroblabs.py' + ' "' + str(input_file) + '"' + ' "' + str(output_folder) + '"'+ ' -z 16-'+ str(zoomlevel) +' -w none -o tms'
-
-
     if newtile:
         os.system(batcmd)
 #        # gdal2tiles using python bindings
@@ -260,7 +254,6 @@ for ortho in ortho_que:
 #        except:
 #            print('Tile generation did not work \n')
 #            continue
-
 
     end_tiling_time = time.time()
 
@@ -392,7 +385,6 @@ for ortho in ortho_que:
         shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM_or))
     if ortho['georectified']:
         shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM))
-
 
     #Moving .points file to archive if present
     if os.path.exists(path_points):
