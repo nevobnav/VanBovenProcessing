@@ -201,6 +201,7 @@ for ortho in ortho_que:
     flight_time = ortho['flight_time']
     filename = ortho['filename']
     logging.info('Starting processing of {}\n'.format(filename))
+    georectified = ortho['georectified']
 
     #Fetch zoomlevel from database entry (zoomlevel established in Batch_Processing)
     scan_data = get_scan(con, meta, date=flight_date, time=flight_time, plot=plot_name)
@@ -331,7 +332,7 @@ for ortho in ortho_que:
 
     #Clear out folder in case old tiles are present
     try:
-        command_remove_folder = 'rm -r ' + remote_unzip_location
+        command_remove_folder = 'rm -r ' + "'" + remote_unzip_location + "'"
         logging.info('clearing out {}'.format(command_remove_folder))
         remove_folder_output = exec_ssh(ssh, command_remove_folder)
         logging.info('Removed folder {}'.format(str(remove_folder_output)))
@@ -358,53 +359,33 @@ for ortho in ortho_que:
 
     ## Move rectified ortho, DEM and .points file to archive
 
-    # define file names and paths for possible DEMs and .points
-    filename_ortho = os.path.splitext(filename)
-    filename_ortho = filename_ortho[0]
-
-    # define individual filenames
-    if ortho['georectified']:
-        filename_ortho_or   = (filename_ortho[0:-3] + '.tif')
-        filename_DEM_or     = (filename_ortho[0:-3] + '_DEM.tif')
-        filename_ortho_vrt  = (filename_ortho[0:-3] + '-GR.vrt')
-        filename_DEM        = (filename_ortho[0:-3] + '_DEM-GR.vrt')
-        filename_points     = (filename_ortho[0:-3] + '.points')
-    elif not(ortho['georectified']):
-        filename_ortho_or   = filename
-        filename_DEM_or     = filename_DEM
-        filename_DEM        = (filename_ortho + '_DEM.tif')
-        filename_points     = (filename_ortho + '.points')
-
-    # define individual paths, based on rectified or not
-    if ortho['georectified']:
-        path_DEM = os.path.join(path_rectified_DEMs, filename_DEM)
-        path_DEM_or = os.path.join(path_rectified_DEMs, filename_DEM_or)
-    elif not(ortho['georectified']):
-        path_DEM = os.path.join(path_ready_to_upload, filename_DEM)
-
-    path_ortho = os.path.join(path_ready_to_upload, filename)
-    path_points = os.path.join(path_rectified_DEMs, filename_points)
+    #define all filenames
+    filename_ortho_vrt = filename
+    filename_ortho_or = os.path.splitext(filename)[0][:-3]+'.tif'        
+    filename_DEM_vrt = os.path.splitext(filename)[0][:-3]+'_DEM-GR.vrt'
+    filename_DEM_or = os.path.splitext(filename)[0][:-3]+'_DEM.tif'        
+    filename_points = os.path.splitext(filename_ortho_or)[0]+'.points'
 
     #Moving (georectified) ortho to archive
     if not(os.path.isdir(ortho_archive_target)):
         os.makedirs(ortho_archive_target)
 
-    if ortho['georectified']:
-        shutil.move(path_ortho,os.path.join(ortho_archive_target,filename_ortho_vrt))
-        shutil.move(path_ortho,os.path.join(ortho_archive_target,filename_ortho_or))
-    elif not(ortho['georectified']):
-        shutil.move(path_ortho,os.path.join(ortho_archive_target,filename))
-
-    #Moving (georectified) DEM to archive if present
-    if os.path.exists(path_DEM):
-        shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM_or))
-    if ortho['georectified']:
-        shutil.move(path_DEM,os.path.join(ortho_archive_target,filename_DEM))
-
-    #Moving .points file to archive if present
-    if os.path.exists(path_points):
-        shutil.move(path_points,os.path.join(ortho_archive_target,filename_points))
-
+    #Move ortho and DEM to archive
+    #Move both original files + vrt files and points file to archive if files are georectified
+    if georectified == True:
+        shutil.move(os.path.join(path_ready_to_upload, filename_ortho_or),os.path.join(ortho_archive_target, filename_ortho_or))
+        shutil.move(os.path.join(path_ready_to_upload, filename_ortho_vrt),os.path.join(ortho_archive_target, filename_ortho_vrt))
+        shutil.move(os.path.join(path_rectified_DEMs, filename_DEM_or),os.path.join(ortho_archive_target, filename_DEM_or))
+        shutil.move(os.path.join(path_rectified_DEMs, filename_DEM_vrt),os.path.join(ortho_archive_target, filename_DEM_vrt))
+        shutil.move(os.path.join(path_rectified_DEMs, filename_points), os.path.join(ortho_archive_target, filename_points))
+    #Move only original files to archive if images have not been georectified
+    elif georectified == False:
+        shutil.move(os.path.join(path_ready_to_upload, filename_ortho_or),os.path.join(ortho_archive_target, filename_ortho_or))
+        if os.path.exists(os.path.join(path_rectified_DEMs, filename_DEM_or)):
+            shutil.move(os.path.join(path_rectified_DEMs, filename_DEM_or),os.path.join(ortho_archive_target, filename_DEM_or))
+        else:
+            logging.info("Original DEM of " + filename_ortho_or + " doesn't exist")
+        
     # Clear out trashbin_originals as all files have been processed, only in case of rectified stuff
     # if ortho['georectified']:
     #     try:
