@@ -18,7 +18,6 @@ Created on Mon Mar  4 18:21:17 2019
 """
 from vanbovendatabase.postgres_lib import *
 
-
 import os, re
 import glob
 import datetime
@@ -47,19 +46,26 @@ from functools import partial
 import pyproj
 from shapely.ops import transform
 
+#root processing path
+processing_path = r"O:/SfM_Jobs/"
+
+#root_path = r'D:\VanBovenDrive\VanBoven MT\Opnames'
+root_path = r"R:/"
+
+
+
 #initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
-logging.basicConfig(filename = r"D:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + str(timestr) \
-+ "_processing_files_log_file" +  ".log",level=logging.DEBUG)
+logging.basicConfig(filename = os.path.join(processing_path, "Log_files/" + str(timestr) + "_processing_files_log_file" +  ".log"),level=logging.DEBUG)
 
 
 # variables
-root_path = r'D:\VanBovenDrive\VanBoven MT\Opnames'
 #steps_to_uploads is the number of folders starting from the root drive untill the uploads folder
 #for example: in the folder "D:\VanBovenDrive\VanBoven MT\Opnames\c04_verdegaal\20190304" the steps_to_uploads = 6
-steps_to_uploads = 6
+#steps_to_uploads = 6
+steps_to_uploads = 2
 #the last number of days to process, standard only the last week is considered for new uploads
 nr_of_days_to_process = 14
 #the maximum time in seconds allowed between images to be considered from the same flight
@@ -82,10 +88,13 @@ password=config.get("DB_PASSWORD")
 def getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process):
     #get a list of all folders
     folderList = pd.DataFrame([x[0] for x in os.walk(root_path)], columns = ['Path'])
+    folderList = folderList[~folderList.Path.str.contains("recycle")]
+
     #select all folders with new uploaded images
     nr_of_subdirs = folderList.Path.str.split("\\")
     nr_of_subdirs = nr_of_subdirs.apply(lambda x:len(x))
     folderList['Nr_of_subdirs'] = nr_of_subdirs
+    
     uploads = folderList[folderList.Nr_of_subdirs == steps_to_uploads]
     uploads['Day'] = uploads['Path'].apply(lambda x:os.path.basename(x))
     #get day of upload as datetime object
@@ -391,15 +400,15 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                         date_of_recording = output.DateTime.iloc[1].date()
                         preprocess_time = datetime.datetime.now()
                         no_of_imgs = len(output)
-                        new_scan_id = insert_new_scan(meta, con, date_of_recording, time_of_recording, plot_name, no_of_images = no_of_imgs, upload_time=upload_time,
-                                            preprocess_time=preprocess_time, live=False)
+                        #create new scan id in database                      
+                        new_scan_id = insert_new_scan(meta, con, date_of_recording, time_of_recording, plot_name, no_of_images = no_of_imgs, upload_time=upload_time, preprocess_time=preprocess_time, live=False)                                   
                         #Create logoutput and to_process file
                         timestr = time.strftime("%Y%m%d-%H%M%S")
                         #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-                        final_output[['Input_folder']].to_csv(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + \
-                        str(customer_id) + '_' + str(plot_name)+".txt", sep = ',', header = False, index = False)
-                        with open(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + \
-                        str(plot_name)+".txt", 'a') as f:
+                        final_output[['Input_folder']].to_csv(os.path.join(processing_path, "To_process/" + timestr + '_' + str(date_of_recording) + '_' + \
+                        str(customer_id) + '_' + str(plot_name)+".txt"), sep = ',', header = False, index = False)
+                        with open(os.path.join(processing_path, "To_process/" + timestr + '_' + str(date_of_recording) + '_' + str(customer_id) + '_' + \
+                        str(plot_name)+".txt"), 'a') as f:
                             f.write(str(plot_name+'\n'))
                             f.write('scan.id: '+str(new_scan_id))
                     #output[['Input_folder', 'Output_folder']].to_csv(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_' +\
@@ -415,9 +424,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             #rep = dict((re.escape(k), v) for k, v in rep.items())
             #pattern = re.compile("|".join(rep.keys()))
             #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-            unknown_plot[['Input_folder']].to_csv(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt', sep = ',', \
-            header = False, index = False)
-            with open(r"D:\VanBovenDrive\VanBoven MT\Processing\To_process/" + timestr + '_' + str(customer_id) + '_unknown_plot.txt', 'a') as f:
+            unknown_plot[['Input_folder']].to_csv(os.path.join(processing_path, "To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt'), sep = ',' , header = False, index = False)            
+            with open(os.path.join(processing_path, "To_process/" + timestr + '_' + str(customer_id) + '_unknown_plot.txt'), 'a') as f:
                 f.write('unknown_plot')
         for plot_name in plot_names:
             total_upload.loc[total_upload[str(plot_name)] == True, 'Plot'] = str(plot_name)
@@ -428,7 +436,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         total_upload['Groupby_nr'] = np.where((abs(total_upload['Altitude_difference']) > 18),1,0).cumsum()
 
 
-        total_upload.to_csv(r"D:\VanBovenDrive\VanBoven MT\Processing\Log_files/" + timestr + '_' + str(customer_id) +"_image_groups.csv")
+        total_upload.to_csv(os.path.join(processing_path, "Log_files/" + timestr + '_' + str(customer_id) +"_image_groups.csv"))
 
 '''
         #check for images

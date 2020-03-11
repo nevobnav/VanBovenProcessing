@@ -12,7 +12,7 @@ import shutil
 import Metashape
 
 metashape_path = r'E:\Metashape'
-output_path = r'D:\900 Metashape archive'
+output_path = r'O:\900 Metashape archive' 
 days_to_store = 14
 
 def find_old_psx_files(metashape_path, days_to_store, output_path):
@@ -33,13 +33,13 @@ def find_old_psx_files(metashape_path, days_to_store, output_path):
                             doc = Metashape.app.document
                             doc.open(psx_file)
                             pszfile = psx_file[:-4]+'.psz'
-                            
+
                             out_path = os.path.dirname(pszfile)
                             if os.path.exists(out_path) == False:
-                                os.makedirs(out_path)                                                           
-                           
+                                os.makedirs(out_path)
+
                             pszfile = pszfile.replace(metashape_path, output_path)
-                            
+
                             doc.save(pszfile )
                             os.remove(psx_file)
                             file_dir = psx_file[:-4]+'.files'
