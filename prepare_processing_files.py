@@ -94,7 +94,7 @@ def getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process):
     nr_of_subdirs = folderList.Path.str.split("\\")
     nr_of_subdirs = nr_of_subdirs.apply(lambda x:len(x))
     folderList['Nr_of_subdirs'] = nr_of_subdirs
-    
+
     uploads = folderList[folderList.Nr_of_subdirs == steps_to_uploads]
     uploads['Day'] = uploads['Path'].apply(lambda x:os.path.basename(x))
     #get day of upload as datetime object
@@ -400,8 +400,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                         date_of_recording = output.DateTime.iloc[1].date()
                         preprocess_time = datetime.datetime.now()
                         no_of_imgs = len(output)
-                        #create new scan id in database                      
-                        new_scan_id = insert_new_scan(meta, con, date_of_recording, time_of_recording, plot_name, no_of_images = no_of_imgs, upload_time=upload_time, preprocess_time=preprocess_time, live=False)                                   
+                        #create new scan id in database
+                        new_scan_id = insert_new_scan(meta, con, date_of_recording, time_of_recording, plot_name, no_of_images = no_of_imgs, upload_time=upload_time, preprocess_time=preprocess_time, live=False)
                         #Create logoutput and to_process file
                         timestr = time.strftime("%Y%m%d-%H%M%S")
                         #output['Output_folder'] = output['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
@@ -424,7 +424,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             #rep = dict((re.escape(k), v) for k, v in rep.items())
             #pattern = re.compile("|".join(rep.keys()))
             #unknown_plot['Output_folder'] = unknown_plot['Input_folder'].apply(lambda x:pattern.sub(lambda m: rep[re.escape(m.group(0))], x))
-            unknown_plot[['Input_folder']].to_csv(os.path.join(processing_path, "To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt'), sep = ',' , header = False, index = False)            
+            unknown_plot[['Input_folder']].to_csv(os.path.join(processing_path, "To_process/" + timestr + '_'+ str(customer_id) +'_unknown_plot.txt'), sep = ',' , header = False, index = False)
             with open(os.path.join(processing_path, "To_process/" + timestr + '_' + str(customer_id) + '_unknown_plot.txt'), 'a') as f:
                 f.write('unknown_plot')
         for plot_name in plot_names:

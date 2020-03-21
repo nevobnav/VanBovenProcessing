@@ -291,7 +291,7 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     #zorg voor mooie naamgeving + output
     tic = time.clock()
     #check if output allready exists and rename if so
-    #ortho_out = ortho_out[:-4]+scan_time.strftime("%H%M")+'.tif'
+    ortho_out = ortho_out[:-4]+scan_time.strftime("%H%M")+'.tif'
 
     name_it = 1
     while os.path.isfile(str(ortho_out)) == True:
@@ -388,10 +388,10 @@ for proces_file in os.listdir(process_path):
                 df = pd.DataFrame([[day_of_recording,timestr[:8], tic, customer_id, plot_id, nr_of_images, (str(day_of_recording) + "_" + str(timestr_save)+'.psx')]],
                     columns = ['Flight date',	'Processing date',	'Start time',	'Customer Name',	'Plot Name',	'No of photos',	'Agisoft filename'])
                 #append info to processinglog.xlsx
-                #append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
+                append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
 
                 #copy previous point file used for georeferencing if available
-                #copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id)
+                copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id)
 
                 #get different paramters related to the flight/scan and add to db:
                 height_of_flight, gsd, zoomlevel, flight_datetime, sensor = scan_information
@@ -400,11 +400,7 @@ for proces_file in os.listdir(process_path):
                 update_dict = {'ortho':ortho_time,'flight_altitude':int(height_of_flight),'zoomlevel':zoomlevel, 'sensor':sensor_label}
                 logging.info("Update dict: {}".format(str(update_dict)))
                 logging.info("Scan id equals: {}".format(scan_id))
-
-
-########################commented out for testing purposes
-
-                #update_scan(con,meta,update_dict,scan_id=scan_id)
+                update_scan(con,meta,update_dict,scan_id=scan_id)
 
                 con.dispose()  #Close down connection
 
