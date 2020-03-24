@@ -163,7 +163,7 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                             break
         #beun oplossing, hier moet alleen jpg geteld worden
         image_count.append(len(os.listdir(folder))-2)
-        list_of_images = ([x for x in os.listdir(folder) if x.endswith('.JPG')])  #glob.glob(folder + '/*.JPG')
+        list_of_images = ([x for x in os.listdir(folder) if (x.endswith('.JPG')) and ("(" not in str(x))])  #glob.glob(folder + '/*.JPG')
         folderList.append(folder)
         image_names.append(list_of_images)
         if len(time_finished) < len(folderList):

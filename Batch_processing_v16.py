@@ -14,15 +14,6 @@
 7. export orthomosaic
 """
 
-"""
-updates voor v1.1:
-    - Images will be archived as upload event.They will be left in the recordings folder.
-    - After processing a file is written to the folder to indicate that the files have been processed
-    - Benefit is that the folder with images as a basis will always exist
-    - when processing, filter uploads to contain only uploads of for example last week. (to reduce time of iterating trough folders)
-
-"""
-
 
 import Metashape
 import os,re,sys
@@ -35,7 +26,7 @@ from vanbovendatabase.postgres_lib import *
 import datetime
 import numpy as np
 
-#root processing path
+#root processing jobs path
 root_processing_path = r"O:/SfM_Jobs/"
 
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
@@ -47,9 +38,9 @@ db=config.get("DB_NAME")
 user=config.get("DB_USER")
 password=config.get("DB_PASSWORD")
 
-def copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id):
-    path_to_plot = os.path.join(processing_archive_path, customer_id, plot_id)
-    path_to_plot = path_to_plot.replace(r"\Processing","")
+def copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id, ortho_archive_path):
+    path_to_plot = os.path.join(ortho_archive_path, customer_id, plot_id)
+    #path_to_plot = path_to_plot.replace(r"\Processing","")
     list_of_recordings = os.listdir(path_to_plot)
     if 'desktop.ini' in list_of_recordings:
         list_of_recordings.remove('desktop.ini')
@@ -335,10 +326,10 @@ process_path = os.path.join(root_processing_path, 'To_process')
 processing_archive_path = os.path.join(root_processing_path, 'Archive')
 processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
 temp_processing_folder = r'E:\Metashape'
+ortho_archive_path = r"A:\\"
 #execute:
 
-#keep track of processing
-nr_of_plots = 0
+fnr_of_plots = 0
 nr_of_images = 0
 
 #Create DB connection:
@@ -391,7 +382,7 @@ for proces_file in os.listdir(process_path):
                 append_df_to_excel(os.path.join(excel_filepath, excel_filename), df)
 
                 #copy previous point file used for georeferencing if available
-                copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id)
+                copy_previous_points_file(ortho_out, processing_folder, processing_archive_path, customer_id, plot_id, ortho_archive_path)
 
                 #get different paramters related to the flight/scan and add to db:
                 height_of_flight, gsd, zoomlevel, flight_datetime, sensor = scan_information

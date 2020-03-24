@@ -106,7 +106,7 @@ path_rectified_DEMs = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified
 path_ready_to_upload = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload'         # folder where all rectified orthos are stored
 
 path_trashbin_originals = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trashbin_originals'  # temporary folder where original orthos and DEMs are kept AFTER georectification
-ortho_archive_destination = r'D:\VanBovenDrive\VanBoven MT\Archive'                             # Folder where rectified orthos, DEMs and points are archived (gdrive)
+ortho_archive_destination = r"A:\\"                             # Folder where rectified orthos, DEMs and points are archived (gdrive)
 
 with open('postgis_config.json') as config_file:
     config = json.load(config_file)
@@ -150,7 +150,7 @@ for file in files:
         # 2) rectified: customer-plot-date.tif AND customer-plot-date-GR.vrt exists    tif_count +=1
 
     test = file.split('-')
-    
+
 
     if len(test) == 3:
         this_customer_name,this_plot_name,this_datetime = file.split('-')
@@ -171,9 +171,19 @@ for file in files:
         dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": True}
         ('    {}: {}\n'.format(str(tif_count),file))
         orthos.append(dict)
-    elif len(test) == 3:
+
+    # logging.info(str(len(test)))
+    # logging.info(str(file))
+    # logging.info(str(this_customer_name))
+    # logging.info(str(this_plot_name))
+    # logging.info(str(this_date))
+    # logging.info(str(this_time))
+    # logging.info(str(file))
+
+    if len(test) == 3:
+    #elif len(test) == 3:
         # if a tiff not rectified, the VRT should NOT exist
-        if os.path.isfile(file.endswith('.tif')):
+        if file.endswith('.tif'):
             checkname = file.replace('.tif', '-GR.vrt')
             if checkname not in files:
                 dict = {"customer_name": this_customer_name, "plot_name":this_plot_name, "flight_date":this_date, "flight_time":this_time, "filename":file, "georectified": False}
@@ -181,6 +191,10 @@ for file in files:
                 orthos.append(dict)
 
 ortho_que = sorted(orthos, key=lambda k: k['flight_date'])
+logging.info(len(ortho_que))
+print(ortho_que)
+logging.info(len(orthos))
+
 
 ## Tiling process ##
 
@@ -359,12 +373,17 @@ for ortho in ortho_que:
 
     ## Move rectified ortho, DEM and .points file to archive
 
+    if georectified == False:
+        filename_ortho_or = filename
+        filename_DEM_or = os.path.splitext(filename_ortho_or)[0] + '_DEM.tif'
+
     #define all filenames
-    filename_ortho_vrt = filename
-    filename_ortho_or = os.path.splitext(filename)[0][:-3]+'.tif'        
-    filename_DEM_vrt = os.path.splitext(filename)[0][:-3]+'_DEM-GR.vrt'
-    filename_DEM_or = os.path.splitext(filename)[0][:-3]+'_DEM.tif'        
-    filename_points = os.path.splitext(filename_ortho_or)[0]+'.points'
+    else:
+        filename_ortho_vrt = filename
+        filename_ortho_or = os.path.splitext(filename)[0][:-3]+'.tif'
+        filename_DEM_vrt = os.path.splitext(filename)[0][:-3]+'_DEM-GR.vrt'
+        filename_DEM_or = os.path.splitext(filename)[0][:-3]+'_DEM.tif'
+        filename_points = os.path.splitext(filename_ortho_or)[0]+'.points'
 
     #Moving (georectified) ortho to archive
     if not(os.path.isdir(ortho_archive_target)):
@@ -385,7 +404,7 @@ for ortho in ortho_que:
             shutil.move(os.path.join(path_rectified_DEMs, filename_DEM_or),os.path.join(ortho_archive_target, filename_DEM_or))
         else:
             logging.info("Original DEM of " + filename_ortho_or + " doesn't exist")
-        
+
     # Clear out trashbin_originals as all files have been processed, only in case of rectified stuff
     # if ortho['georectified']:
     #     try:

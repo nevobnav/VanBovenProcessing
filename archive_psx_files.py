@@ -10,10 +10,22 @@ import datetime
 import pandas as pd
 import shutil
 import Metashape
+import time
+import logging
+
+#root processing jobs path
+root_processing_path = r"O:/SfM_Jobs/"
 
 metashape_path = r'E:\Metashape'
-output_path = r'O:\900 Metashape archive' 
+output_path = r'O:\900 Metashape archive'
 days_to_store = 14
+
+#initiate log file
+timestr = time.strftime("%Y%m%d-%H%M%S")
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+logging.basicConfig(filename = os.path.join(root_processing_path, "Log_files/" + str(timestr) + "_Metashape_archiving_log_file.log"),level=logging.DEBUG)
+
 
 def find_old_psx_files(metashape_path, days_to_store, output_path):
     today = datetime.date.today()
@@ -28,8 +40,10 @@ def find_old_psx_files(metashape_path, days_to_store, output_path):
                         file_created_str = file[:8]
                         file_created_date = datetime.date(int(file_created_str[:4]),int(file_created_str[4:6]), int(file_created_str[6:]))
                         if file_created_date < threshold_date:
+                            print('archiving ' + file + ' ...')
                             psx_file = os.path.join(i, file)
-                            Metashape.app.console.clear()
+                            #Metashape.app.console.clear() before version 1.6
+                            Metashape.app.console_pane.clear()
                             doc = Metashape.app.document
                             doc.open(psx_file)
                             pszfile = psx_file[:-4]+'.psz'
@@ -47,6 +61,8 @@ def find_old_psx_files(metashape_path, days_to_store, output_path):
                         else:
                             continue
                     except:
+                        logging.exception("Metashape processing encountered the following problem:")
+                        logging.info("\n")
                         print('error encountered while archiving')
 
 find_old_psx_files(metashape_path, days_to_store, output_path)
