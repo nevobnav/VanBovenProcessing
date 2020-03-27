@@ -329,7 +329,7 @@ temp_processing_folder = r'E:\Metashape'
 ortho_archive_path = r"A:\\"
 #execute:
 
-fnr_of_plots = 0
+nr_of_plots = 0
 nr_of_images = 0
 
 #Create DB connection:
