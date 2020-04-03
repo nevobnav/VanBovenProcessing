@@ -73,6 +73,8 @@ nr_of_days_to_process = 21
 max_time_diff = 3600
 #minimum nr of images per ha needed to process a flight
 min_nr_of_images_per_ha = 30
+#minimum job size of the Metashape job. Tasks with less than 60 images are ignored.
+min_job_size = 60
 #db connection info
 config_file_path = r'C:\Users\VanBoven\MijnVanBoven\config.json'
 port = 5432
@@ -313,7 +315,7 @@ def transform_geometry(geometry):
     geometry = transform(project, geometry)  # apply projection
     return geometry
 
-def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta):
+def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta, min_job_size):
     #loop through folders to process
     for z in range(len(files_to_process)):
         folder = files_to_process['Path'].iloc[z]
@@ -328,7 +330,7 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         date_of_recording = os.path.basename(folder)
         #get the image names and path
         images = pd.DataFrame({'Image_names':files_to_process['Image_names'].iloc[z]})
-        
+
         #read metadata jpg
         if images.iloc[0,0].lower().endswith('.jpg'):
             metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getExif(PIL.Image.open(os.path.join(folder, x))))})
@@ -341,10 +343,10 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
             images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
             images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ISOSpeedRatings'))}))
             images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExposureTime')[1]/x.get('ExposureTime')[0])}))
-        
+
         #read metadata tif files
         if images.iloc[0,0].lower().endswith('.tif'):
-            metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getTiffTags(os.path.join(folder, x)))})            
+            metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getTiffTags(os.path.join(folder, x)))})
             #altitude can not be derived from sequoia metadata. use 30 as default
             #get altitude from metadata if available
             altitude = []
@@ -360,17 +362,17 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                     else:
                         altitude.append(0)
                         coordinates.append(Point())
-                        
+
             images['Altitude'] = altitude
             images['Coords'] = coordinates
             images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
             images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ExifTag').get('ISOSpeedRatings'))}))
             images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExifTag').get('ExposureTime')[1]/x.get('ExifTag').get('ExposureTime')[0])}))
-        
+
         #optional to write output for debugging purposes
         #timestr = time.strftime("%Y%m%d-%H%M%S")
         #images.to_csv(os.path.join(processing_path, 'Log_files', str(timestr) + '-images.csv'), encoding='utf-8')
-        
+
         images = images.sort_values(by='DateTime', ascending=True)
         images = images.reset_index(drop=True)
         #Group images from the same flights
@@ -467,6 +469,8 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
                 """
                 if len(multiple_outputs) > 0:
                     for final_output in multiple_outputs:
+                        if len(final_output[['Input_folder']]) < min_job_size:
+                            continue
                         time.sleep(2)
                         #register this processing job as a Scan in database:
                         time_of_recording = output.DateTime.iloc[1].time()
@@ -580,16 +584,16 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
 
 '''
 
-def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process):
+def processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process, min_job_size):
     new_finished_uploads = getListOfFolders(root_path, steps_to_uploads, nr_of_days_to_process)
     if new_finished_uploads is not None:
         files_to_process = CreateProcessingOrderUploads(new_finished_uploads)
         con, meta = connect(user, password, db, host=host, port=port)
-        GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta)
+        GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha, con, meta, min_job_size)
         con.dispose()
 
 try:
-    processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process)
+    processing(root_path, steps_to_uploads, max_time_diff, min_nr_of_images_per_ha, config_file_path, port, nr_of_days_to_process, min_job_size)
 except Exception:
     timestr = time.strftime("%Y%m%d-%H%M%S")
     logging.info("Error encountered at the following time: " + str(timestr))
