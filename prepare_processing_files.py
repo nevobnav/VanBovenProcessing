@@ -24,8 +24,11 @@ import datetime
 import time
 import pandas as pd
 import numpy as np
+
 import PIL.ExifTags
 import PIL.Image
+import tifffile
+
 import psycopg2
 import json
 import logging
@@ -51,8 +54,6 @@ processing_path = r"O:/SfM_Jobs/"
 
 #root_path = r'D:\VanBovenDrive\VanBoven MT\Opnames'
 root_path = r"R:/"
-
-
 
 #initiate log file
 timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -161,14 +162,26 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                             #currently images are still processed, despite missing uploads
                         elif (i > 4):
                             break
-        #beun oplossing, hier moet alleen jpg geteld worden
-        image_count.append(len(os.listdir(folder))-2)
+
+        #.jpg part of the upload
         #check for image size to prevent thumbnails from being processed.
         list_of_images = ([x for x in os.listdir(folder) if (x.endswith('.JPG')) and (PIL.Image.open(os.path.join(folder, x)).size[0] > 1000)])#and ("(" not in str(x))])  #glob.glob(folder + '/*.JPG')
-        folderList.append(folder)
-        image_names.append(list_of_images)
-        if len(time_finished) < len(folderList):
-            time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
+        if len(list_of_images) > 0:
+            image_count.append(len(list_of_images))
+            folderList.append(folder)
+            image_names.append(list_of_images)
+            if len(time_finished) < len(folderList):
+                time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
+
+        #.tif part of the upload
+        list_of_tifs = ([x for x in os.listdir(folder) if (x.endswith('.tif')) or (x.endswith('.TIF'))])
+        if len(list_of_tifs) > 0:
+            image_count.append(len(list_of_tifs))
+            folderList.append(folder)
+            image_names.append(list_of_tifs)
+            if len(time_finished) < len(folderList):
+                time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
+
         #if len(time_finished) < 1:
             #time_finished.append(datetime.date.today() + datetime.timedelta(days=1))
     #Create dataframe with all information for processing and sort based on datetime
@@ -176,6 +189,8 @@ def CreateProcessingOrderUploads(new_finished_uploads):
     files_to_process['Processing_order'] = files_to_process['Time_finished_uploading'].rank(ascending=1)
     files_to_process = files_to_process.set_index(files_to_process['Time_finished_uploading'])
     files_to_process = files_to_process.sort_index(ascending=1)
+    #optional write file as csv output for debugging
+    #files_to_process.to_csv(os.path.join(processing_path, 'Log_files', str(timestr) + '-files_to_process.csv'), encoding='utf-8')
     return files_to_process
 
 #function to access image metadata
@@ -187,18 +202,41 @@ def getExif(img):
     }
     return exif
 
+def getTiffTags(img):
+    with tifffile.TiffFile(img) as tif:
+        tif_tags = {}
+        for tag in tif.pages[0].tags.values():
+            name, value = tag.name, tag.value
+            tif_tags[name] = value
+    return tif_tags
+
 def get_image_coords(folder, img):
-    gps_info = getExif(PIL.Image.open(os.path.join(folder, img))).get('GPSInfo')
-    d, m, s = gps_info[2]
-    #get degrees, minutes, seconds for lat
-    d_lat = d[0]/d[1]
-    m_lat = m[0]/m[1]
-    s_lat = s[0]/s[1]
-    #get degrees, minutes secondes for lon
-    d, m, s = gps_info[4]
-    d_lon = d[0]/d[1]
-    m_lon = m[0]/m[1]
-    s_lon = s[0]/s[1]
+    if isinstance(img, str) == True:
+        if img.lower().endswith('.jpg'):
+            gps_info = getExif(PIL.Image.open(os.path.join(folder, img))).get('GPSInfo')
+            d, m, s = gps_info[2]
+            #get degrees, minutes, seconds for lat
+            d_lat = d[0]/d[1]
+            m_lat = m[0]/m[1]
+            s_lat = s[0]/s[1]
+            #get degrees, minutes secondes for lon
+            d, m, s = gps_info[4]
+            d_lon = d[0]/d[1]
+            m_lon = m[0]/m[1]
+            s_lon = s[0]/s[1]
+    if isinstance(img, dict) == True:
+        gps_info = img.get('GPSTag')
+        dms_lat = gps_info.get('GPSLatitude')
+        dms_lon = gps_info.get('GPSLongitude')
+        #get degrees, minutes, seconds for lat
+        d_lat = dms_lat[0]/dms_lat[1]
+        m_lat = dms_lat[2]/dms_lat[3]
+        s_lat = dms_lat[4]/dms_lat[5]
+        #get degrees, minutes secondes for lon
+        d_lon = dms_lon[0]/dms_lon[1]
+        m_lon = dms_lon[2]/dms_lon[3]
+        s_lon = dms_lon[4]/dms_lon[5]
+
     #convert to decimal degrees
     dd_lat = d_lat + float(m_lat)/60 + float(s_lat)/3600
     dd_lon = d_lon + float(m_lon)/60 + float(s_lon)/3600
@@ -290,17 +328,49 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         date_of_recording = os.path.basename(folder)
         #get the image names and path
         images = pd.DataFrame({'Image_names':files_to_process['Image_names'].iloc[z]})
-        #read metadata
-        metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getExif(PIL.Image.open(os.path.join(folder, x))))})
-        #get altitude from Exif data
-        #images['Altitude'] = images['Image_names'].apply(lambda x:pd.Series({'Alt':(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][0])/(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][1])}))
-        images['Altitude'] = metadata['Metadata'].apply(lambda x:pd.Series({'Alt':(x.get('GPSInfo')[6][0])/(x.get('GPSInfo')[6][1])}))
-        #get the coordinates of the images from the metadata this function has to be improved to used metadata dataframe instead of image metadata with PIL
-        images['Coords'] = images['Image_names'].apply(lambda x:pd.Series({'Coords':Point(get_image_coords(folder, x))}))
-        #get the date and time of the images from the metadata
-        images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
-        images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ISOSpeedRatings'))}))
-        images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExposureTime')[1]/x.get('ExposureTime')[0])}))
+        
+        #read metadata jpg
+        if images.iloc[0,0].lower().endswith('.jpg'):
+            metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getExif(PIL.Image.open(os.path.join(folder, x))))})
+            #get altitude from Exif data
+            #images['Altitude'] = images['Image_names'].apply(lambda x:pd.Series({'Alt':(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][0])/(getExif(PIL.Image.open(os.path.join(folder, x))).get('GPSInfo')[6][1])}))
+            images['Altitude'] = metadata['Metadata'].apply(lambda x:pd.Series({'Alt':(x.get('GPSInfo')[6][0])/(x.get('GPSInfo')[6][1])}))
+            #get the coordinates of the images from the metadata this function has to be improved to used metadata dataframe instead of image metadata with PIL
+            images['Coords'] = images['Image_names'].apply(lambda x:pd.Series({'Coords':Point(get_image_coords(folder, x))}))
+            #get the date and time of the images from the metadata
+            images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
+            images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ISOSpeedRatings'))}))
+            images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExposureTime')[1]/x.get('ExposureTime')[0])}))
+        
+        #read metadata tif files
+        if images.iloc[0,0].lower().endswith('.tif'):
+            metadata = pd.DataFrame({'Metadata':images['Image_names'].apply(lambda x:getTiffTags(os.path.join(folder, x)))})            
+            #altitude can not be derived from sequoia metadata. use 30 as default
+            #get altitude from metadata if available
+            altitude = []
+            coordinates = []
+            for img_metadata in metadata['Metadata']:
+                if len(img_metadata.get('GPSTag').keys()) > 5:
+                    altitude.append(img_metadata.get('GPSTag').get('GPSAltitude')[0]/img_metadata.get('GPSTag').get('GPSAltitude')[1])
+                    coordinates.append(Point(get_image_coords(folder, img_metadata)))
+                else:
+                    if len(altitude) > 0:
+                        altitude.append(altitude[-1])
+                        coordinates.append(coordinates[-1])
+                    else:
+                        altitude.append(0)
+                        coordinates.append(Point())
+                        
+            images['Altitude'] = altitude
+            images['Coords'] = coordinates
+            images['DateTime'] = metadata['Metadata'].apply(lambda x:pd.to_datetime(x.get('DateTime'), format = '%Y:%m:%d %H:%M:%S'))
+            images['ISO'] = metadata['Metadata'].apply(lambda x:pd.Series({'ISO':(x.get('ExifTag').get('ISOSpeedRatings'))}))
+            images['Exposure_time'] = metadata['Metadata'].apply(lambda x: pd.Series({'Exposure':int(x.get('ExifTag').get('ExposureTime')[1]/x.get('ExifTag').get('ExposureTime')[0])}))
+        
+        #optional to write output for debugging purposes
+        #timestr = time.strftime("%Y%m%d-%H%M%S")
+        #images.to_csv(os.path.join(processing_path, 'Log_files', str(timestr) + '-images.csv'), encoding='utf-8')
+        
         images = images.sort_values(by='DateTime', ascending=True)
         images = images.reset_index(drop=True)
         #Group images from the same flights
@@ -310,17 +380,19 @@ def GroupImagesPerPlot(files_to_process, max_time_diff, min_nr_of_images_per_ha,
         timestr = time.strftime("%Y%m%d-%H%M%S")
         #logging.info(str(images['Groupby_nr'].max()) + " image groups at " + str(timestr))
         total_upload = images.copy()
-        exp_test = pd.DataFrame({'exp_test':images['Exposure_time'] == 320})
-        iso_min = images['ISO'].min()
-        iso_max = images['ISO'].max()
-        if not exp_test['exp_test'].all():
-            with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
-                f.write(str('Not all images have exposure of 1/320\n'))
-                f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
-        if iso_max > 800:
-            with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
-                f.write(str('Iso value was > 800, check quality and reason.\n'))
-                f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
+        #check rgb image settings for inconsistencies
+        if images.iloc[0,0].lower().endswith('.jpg'):
+            exp_test = pd.DataFrame({'exp_test':images['Exposure_time'] == 320})
+            iso_min = images['ISO'].min()
+            iso_max = images['ISO'].max()
+            if not exp_test['exp_test'].all():
+                with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
+                    f.write(str('Not all images have exposure of 1/320\n'))
+                    f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
+            if iso_max > 800:
+                with open(r"C:\Users\VanBoven\Documents\100 Ortho Inbox/" + str(customer_id) + '_' + str(date_of_recording)+".txt", 'a') as f:
+                    f.write(str('Iso value was > 800, check quality and reason.\n'))
+                    f.write('Range of iso values = '+str(iso_min)+'-'+str(iso_max)+'\n')
 
         #get plots of customer from DB
         plot_ids, plot_names = get_customer_plots(customer_id, meta, con)
