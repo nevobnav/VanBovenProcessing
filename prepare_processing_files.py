@@ -67,7 +67,7 @@ logging.basicConfig(filename = os.path.join(processing_path, "Log_files/" + str(
 #steps_to_uploads = 6
 steps_to_uploads = 2
 #the last number of days to process, standard only the last week is considered for new uploads
-nr_of_days_to_process = 14
+nr_of_days_to_process = 21
 #the maximum time in seconds allowed between images to be considered from the same flight
 max_time_diff = 3600
 #minimum nr of images per ha needed to process a flight
@@ -163,7 +163,8 @@ def CreateProcessingOrderUploads(new_finished_uploads):
                             break
         #beun oplossing, hier moet alleen jpg geteld worden
         image_count.append(len(os.listdir(folder))-2)
-        list_of_images = ([x for x in os.listdir(folder) if (x.endswith('.JPG')) and ("(" not in str(x))])  #glob.glob(folder + '/*.JPG')
+        #check for image size to prevent thumbnails from being processed.
+        list_of_images = ([x for x in os.listdir(folder) if (x.endswith('.JPG')) and (PIL.Image.open(os.path.join(folder, x)).size[0] > 1000)])#and ("(" not in str(x))])  #glob.glob(folder + '/*.JPG')
         folderList.append(folder)
         image_names.append(list_of_images)
         if len(time_finished) < len(folderList):
