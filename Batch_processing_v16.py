@@ -144,7 +144,13 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     # addPhotos(filenames[, progress])
     # - filenames(list of string) – A list of file paths.
     chunk.addPhotos(photoList)
-    getAltitude(chunk)
+
+    #jpg images are from DJI Phantom and altitude needs to be updated with relative altitude
+    if photoList[0].lower().endswith('.jpg') == True:
+        getAltitude(chunk)
+
+    if photoList[0].lower().endswith('.tif') == True:
+        chunk.calibrateReflectance(use_sun_sensor=True)
     #set ground altitude at 0
     chunk.meta["ground_altitude"] = "0"
     chunk.camera_rotation_accuracy = [10.0,5.0,5.0]
