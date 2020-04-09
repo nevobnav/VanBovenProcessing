@@ -12,11 +12,16 @@ import shutil
 import Metashape
 import time
 import logging
+import multiprocessing
 
 #root processing jobs path
 root_processing_path = r"O:/SfM_Jobs/"
 
-metashape_path = r'E:\Metashape'
+if multiprocessing.cpu_count() <32:
+    metashape_path = r'E:\Metashape'
+elif multiprocessing.cpu_count() => 32:
+    metashape_path = r'D:\200 Metashape'
+    
 output_path = r'O:\900 Metashape archive'
 days_to_store = 14
 

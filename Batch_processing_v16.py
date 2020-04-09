@@ -16,6 +16,7 @@
 
 
 import Metashape
+import multiprocessing
 import os,re,sys
 import time
 import logging
@@ -330,8 +331,14 @@ logging.basicConfig(filename = os.path.join(root_processing_path, "Log_files/" +
 process_path = os.path.join(root_processing_path, 'To_process')
 #move_path = os.path.join(root_processing_path, 'To_move')
 processing_archive_path = os.path.join(root_processing_path, 'Archive')
-processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
-temp_processing_folder = r'E:\Metashape'
+#Processing on Stampertje
+if multiprocessing.cpu_count() < 32:
+    processing_folder = r'C:\Users\VanBoven\Documents\100 Ortho Inbox'
+    temp_processing_folder = r'E:\Metashape'
+#processing on Bambi
+elif multiprocessing.cpu_count() >= 32:
+    processing_folder = r'D:\100 Ortho Inbox'
+    temp_processing_folder = r'D:\200 Metashape'
 ortho_archive_path = r"A:\\"
 #execute:
 
