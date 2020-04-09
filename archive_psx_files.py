@@ -17,9 +17,9 @@ import multiprocessing
 #root processing jobs path
 root_processing_path = r"O:/SfM_Jobs/"
 
-if multiprocessing.cpu_count() <32:
+if multiprocessing.cpu_count() < 32:
     metashape_path = r'E:\Metashape'
-elif multiprocessing.cpu_count() => 32:
+elif multiprocessing.cpu_count() >= 32:
     metashape_path = r'D:\200 Metashape'
     
 output_path = r'O:\900 Metashape archive'
