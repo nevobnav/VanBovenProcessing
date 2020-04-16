@@ -101,11 +101,19 @@ def mkpath(sftp,path):
 ## CONFIG SECTION ##
 pem_path= r"C:\Users\VanBoven\Documents\SSH\VanBovenAdmin.pem"
 
-path_ready_to_rectify = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\1_ready_to_rectify'       # folder where all approved original orthos, DEMS and points are stored
-path_rectified_DEMs = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs_points'   # folder where all rectified DEMs are stored
-path_ready_to_upload = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload'         # folder where all rectified orthos are stored
+if multiprocessing.cpu_count() < 32:
+    path_ready_to_rectify = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\1_ready_to_rectify'       # folder where all approved original orthos, DEMS and points are stored
+    path_rectified_DEMs = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_rectified_DEMs_points'   # folder where all rectified DEMs are stored
+    path_ready_to_upload = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\2_ready_to_upload'         # folder where all rectified orthos are stored
 
-path_trashbin_originals = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trashbin_originals'  # temporary folder where original orthos and DEMs are kept AFTER georectification
+    path_trashbin_originals = r'C:\Users\VanBoven\Documents\100 Ortho Inbox\00_trashbin_originals'  # temporary folder where original orthos and DEMs are kept AFTER georectification
+elif multiprocessing.cpu_count() >= 32:
+    path_ready_to_rectify = r'd:\100 Ortho Inbox\1_ready_to_rectify'       # folder where all approved original orthos, DEMS and points are stored
+    path_rectified_DEMs = r'd:\100 Ortho Inbox\00_rectified_DEMs_points'   # folder where all rectified DEMs are stored
+    path_ready_to_upload = r'd:\100 Ortho Inbox\2_ready_to_upload'         # folder where all rectified orthos are stored
+
+    path_trashbin_originals = r'd:\100 Ortho Inbox\00_trashbin_originals'  # temporary folder where original orthos and DEMs are kept AFTER georectification
+
 ortho_archive_destination = r"A:\\"                             # Folder where rectified orthos, DEMs and points are archived (gdrive)
 
 with open('postgis_config.json') as config_file:
