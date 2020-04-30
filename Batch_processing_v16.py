@@ -314,7 +314,13 @@ def MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, o
     doc.clear()
 
     scan_information = get_scan_information(chunk)
-    return timestr_save, scan_information
+
+    #get output files resolutions
+    ortho_gsd = chunk.orthomosaic.resolution
+    dem_gsd = chunk.elevation.resolution
+    pointcloud_gsd = chunk.dense_cloud.meta.values()[chunk.dense_cloud.meta.keys().index("BuildDenseCloud/resolution")]
+
+    return timestr_save, scan_information, ortho_gsd, dem_gsd, pointcloud_gsd
 
 #Start of execution
 #get quality parameter from bat script
@@ -376,7 +382,7 @@ for proces_file in os.listdir(process_path):
                 #register start time of metashape process
                 tic = time.clock()
                 #run metashape process
-                timestr_save, scan_information = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality, scan_time)
+                timestr_save, scan_information, ortho_gsd, dem_gsd, pointcloud_gsd = MetashapeProcess(photoList, day_of_recording, metashape_processing_folder, ortho_out, quality, scan_time)
                 #register finish time of metashape process
                 toc = time.clock()
                 #write processing time to log file
